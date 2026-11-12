@@ -13,7 +13,12 @@ export default function Product() {
     let dead = false;
     import("@/three/Cone3D").then(({ createCones }) => {
       if (dead || !canvas.current) return;
-      dispose = createCones(canvas.current, () => setReady(true));
+      dispose = createCones(canvas.current, () => {
+        setReady(true);
+        // экран загрузки ждёт этот сигнал
+        (window as unknown as { __ygReady?: boolean }).__ygReady = true;
+        window.dispatchEvent(new Event("yg:ready"));
+      });
     });
     return () => {
       dead = true;

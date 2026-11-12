@@ -7,6 +7,7 @@ import { flavors, footer, hero, inside, nav, pour, ritual } from "@/content";
 import { stage } from "@/three/stage";
 import Find from "./Find";
 import Fruits from "./Fruits";
+import Preloader from "./Preloader";
 import Product from "./Product";
 import s from "./landing.module.scss";
 
@@ -167,6 +168,7 @@ export default function Landing() {
 
   return (
     <div ref={root} className={s.page}>
+      <Preloader />
       {/* фон: свечение за рожком и зерно */}
       <div className={s.backdrop} aria-hidden>
         <div className={s.glow} />

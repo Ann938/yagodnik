@@ -1,52 +1,88 @@
-# Сборка слоёв рожка из фото: вафля / пломбир (3 вкуса) / соус (3 вкуса).
-# python -I build.py <scratch cone dir> <public/cone dir>
-import sys, numpy as np, cv2
+# Сборка слоёв рожка из фото пользователя (PNG с прозрачным фоном):
+# вафля / пломбир (3 вкуса) / джем (3 вкуса) + profile.json для 3D (центр и полуширина каждой строки).
+# python -I scripts/build-cone.py <фото.png> <public/cone> <src/three/profile.json> <папка для превью>
+import sys, json, numpy as np, cv2
 from PIL import Image
 
-d, o_final = sys.argv[1], sys.argv[2]
-import os
-o = d + "/tmp2x"
-os.makedirs(o, exist_ok=True)
-cut = Image.open(d + "/cut.png").convert("RGBA")
-W, H = cut.size
-a = np.array(cut.resize((W * 2, H * 2), Image.LANCZOS)).astype(np.float32)
+src, out_dir, prof_path, dbg = sys.argv[1:5]
+im = Image.open(src).convert("RGBA")
+a = np.array(im)
+ys, xs = np.where(a[:, :, 3] > 20)
+PAD = 6
+a = a[max(0, ys.min() - PAD) : ys.max() + PAD, max(0, xs.min() - PAD) : xs.max() + PAD].astype(np.float32)
 rgb = a[:, :, :3]
 A = a[:, :, 3] / 255
-H2, W2 = A.shape
+H, W = A.shape
 fg = A > 0.08
 hsv = cv2.cvtColor(rgb.astype(np.uint8), cv2.COLOR_RGB2HSV).astype(np.float32)
 h, s, v = hsv[:, :, 0], hsv[:, :, 1], hsv[:, :, 2]
+K = W / 520  # масштаб относительно прежнего фото — для размеров ядер
+k = lambda n: max(3, int(round(n * K)) | 1)
 
-# --- маска соуса (с розовым ореолом)
-red = ((((h < 11) | (h > 155)) & (s > 38) & fg)).astype(np.uint8)
+# --- джем: красный тон
+# ядро — только насыщенно-красное (тени вафли рыжеватые: тон 8–12, их не берём)
+red = ((((h < 8) | (h > 165)) & (s > 100) & fg)).astype(np.uint8)
 red = cv2.morphologyEx(red, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
-sauce = cv2.dilate(red, np.ones((7, 7), np.uint8)).astype(bool)
+# семечки и блики внутри полос джема — закрываем, чтобы джем снимался целиком
+red = cv2.morphologyEx(red, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k(11), k(11))))
+n_, lab_, st_, _ = cv2.connectedComponentsWithStats(red, 8)
+for i in range(1, n_):
+    if st_[i, cv2.CC_STAT_AREA] < 40 * K * K:  # одиночные рыжие крапинки на вафле — не джем
+        red[lab_ == i] = 0
+sauce = cv2.dilate(red, np.ones((k(7), k(7)), np.uint8)).astype(bool)
 
-# --- кромка рожка: дуга
-y0 = 760
-row = np.where(A[y0] > 0.5)[0]
-cx, hw = (row.min() + row.max()) / 2, (row.max() - row.min()) / 2
-yy, xx = np.mgrid[0:H2, 0:W2].astype(np.float32)
-edge = y0 + 18 * ((xx - cx) / hw) ** 2 - 6
+# --- вафля: оранжево-золотистая и насыщенная
+waf = ((h >= 8) & (h <= 26) & (s > 95) & fg & ~sauce).astype(np.uint8)
+waf = cv2.morphologyEx(waf, cv2.MORPH_CLOSE, np.ones((k(9), k(9)), np.uint8))
 
-# --- что есть вафля: цвет вафли или всё ниже дуги
-waf_col = (h >= 8) & (h <= 28) & (s > 70) & fg
-below = yy >= edge
-waffle_zone = (below | (waf_col & (yy > y0 - 120))) & fg
+# --- кромка рожка: по столбцам — верх сплошной вафли; гладкая парабола по надёжным столбцам
+rim = np.full(W, np.nan)
+for x in range(W):
+    col = waf[:, x]
+    yy_ = np.where(fg[:, x])[0]
+    if len(yy_) == 0:
+        continue
+    y = yy_.max()
+    win = int(24 * K)
+    while y > yy_.min() + win and col[y - win : y].mean() > 0.7:
+        y -= 4
+    rim[x] = y
+xs_ok = np.where(~np.isnan(rim))[0]
+fx = xs_ok[(xs_ok > W * 0.2) & (xs_ok < W * 0.8)]
+# столбцы, где по кромке стекает джем, сбивают оценку — отбрасываем выбросы в два прохода
+for _ in range(2):
+    c = np.polyfit(fx, rim[fx], 2)
+    res = rim[fx] - np.polyval(c, fx)
+    fx = fx[np.abs(res) < max(8 * K, np.std(res) * 1.5)]
+c = np.polyfit(fx, rim[fx], 2)
+xx_, yy_ = np.meshgrid(np.arange(W, dtype=np.float32), np.arange(H, dtype=np.float32))
+# дуга чуть ниже зубчиков кромки: вафля под ней ровная
+edge = np.polyval(c, xx_) + 22 * K
+print("rim fit", c, "center y", np.polyval(c, W / 2))
+
+# над вафлей (на пломбире) джем бывает полупрозрачным и рыжеватым — там берём шире:
+# пломбир почти бесцветный, всё тёплое и насыщенное на нём — джем
+cream_area = (yy_ < edge - 4 * K) & fg
+red_soft = ((((h < 15) | (h > 150)) & (s > 38) & cream_area)).astype(np.uint8)
+red_soft = cv2.morphologyEx(red_soft, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+red = np.maximum(red, red_soft)
+red = cv2.morphologyEx(red, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k(7), k(7))))
+sauce = cv2.dilate(red, np.ones((k(7), k(7)), np.uint8)).astype(bool)
+below = yy_ >= edge
+waffle_zone = (below | (waf.astype(bool) & (yy_ > np.polyval(c, xx_) - 120 * K))) & fg
 
 out = rgb.copy()
 bgr = cv2.cvtColor(rgb.astype(np.uint8), cv2.COLOR_RGB2BGR)
-# фон тоже закрашиваем, чтобы у края силуэта дорисовка не тянула чёрный из прозрачной области
-tel = cv2.cvtColor(cv2.inpaint(bgr, (sauce | ~fg).astype(np.uint8), 9, cv2.INPAINT_TELEA), cv2.COLOR_BGR2RGB).astype(np.float32)
+tel = cv2.cvtColor(cv2.inpaint(bgr, (sauce | ~fg).astype(np.uint8), int(9 * K), cv2.INPAINT_TELEA), cv2.COLOR_BGR2RGB).astype(np.float32)
 
-# 1) пломбир под соусом: построчная интерполяция между краями полосы; у силуэта — telea
-for y in range(H2):
-    xs = np.where(sauce[y] & ~waffle_zone[y])[0]
-    if len(xs) == 0:
+# 1) пломбир под джемом: построчная интерполяция (витки идут горизонтальными полосами); у силуэта — telea
+for y in range(H):
+    xs2 = np.where(sauce[y] & ~waffle_zone[y])[0]
+    if len(xs2) == 0:
         continue
-    for r in np.split(xs, np.where(np.diff(xs) > 1)[0] + 1):
+    for r in np.split(xs2, np.where(np.diff(xs2) > 1)[0] + 1):
         x0, x1 = r[0] - 3, r[-1] + 3
-        inside = x0 >= 0 and x1 < W2 and fg[y, x0] and fg[y, x1] and not sauce[y, x0] and not sauce[y, x1]
+        inside = x0 >= 0 and x1 < W and fg[y, x0] and fg[y, x1] and not sauce[y, x0] and not sauce[y, x1]
         if not inside:
             out[y, r[0] : r[-1] + 1] = tel[y, r[0] : r[-1] + 1]
             continue
@@ -54,107 +90,71 @@ for y in range(H2):
         c1 = out[y, x1 : x1 + 3].mean(0)
         t = np.linspace(0, 1, len(r))[:, None]
         out[y, r[0] : r[-1] + 1] = c0 * (1 - t) + c1 * t
-# лёгкий вертикальный blur в зоне заплаток — убирает «лесенку» между строками
 m = sauce & ~waffle_zone
-bl = cv2.GaussianBlur(out, (1, 9), 0)
-w = cv2.GaussianBlur(m.astype(np.float32), (9, 9), 0)[:, :, None]
+bl = cv2.GaussianBlur(out, (1, k(9)), 0)
+w = cv2.GaussianBlur(m.astype(np.float32), (k(9), k(9)), 0)[:, :, None]
 out = out * (1 - w * 0.7) + bl * (w * 0.7)
 out[m] += np.random.default_rng(1).normal(0, 2.0, (m.sum(), 1))
 
-# 2) вафля под соусом и потёками пломбира: копия узора со сдвигом на период клетки
-cream_drip = (s < 75) & (v > 165) & fg & below
-sauce_w = cv2.dilate(red, np.ones((13, 13), np.uint8)).astype(bool)  # на вафле ореол соуса шире
-bad = ((sauce_w & waffle_zone) | cv2.dilate(cream_drip.astype(np.uint8), np.ones((7, 7), np.uint8)).astype(bool)) & waffle_zone
-P = 52
-left = bad.copy()
-for sx, sy in [(P, 0), (-P, 0), (2 * P, 0), (-2 * P, 0), (P // 2, P // 2), (-P // 2, P // 2), (P // 2, -P // 2), (-P // 2, -P // 2), (0, P), (0, -P), (3 * P, 0), (-3 * P, 0)]:
-    ys, xs = np.where(left)
-    if len(ys) == 0:
-        break
-    ny, nx = ys + sy, xs + sx
-    ok = (nx >= 0) & (nx < W2) & (ny >= 0) & (ny < H2)
-    i = np.where(ok)[0]
-    good = ~bad[ny[i], nx[i]] & (A[ny[i], nx[i]] > 0.9) & waffle_zone[ny[i], nx[i]]
-    i = i[good]
-    out[ys[i], xs[i]] = rgb[ny[i], nx[i]]
-    left[ys[i], xs[i]] = False
-out[left] = tel[left]
-sb = cv2.GaussianBlur(bad.astype(np.float32), (7, 7), 0)
-fix = cv2.GaussianBlur(out, (3, 3), 0)
-ww = (sb * (1 - sb) * 4)[:, :, None]
-out = out * (1 - ww) + fix * ww
+# 2) вафля под каплями: джем на сайте всегда лежит сверху (вкусы меняются перетеканием цвета),
+#    поэтому под ним достаточно гладкой дорисовки в цвет вафли
+bad = cv2.dilate(red, np.ones((k(9), k(9)), np.uint8)).astype(bool) & waffle_zone
+out[bad] = tel[bad]
 clean = np.clip(out, 0, 255)
 
 def save(name, col, alpha):
-    Image.fromarray(np.dstack([np.clip(col, 0, 255), np.clip(alpha * 255, 0, 255)]).astype(np.uint8)).save(o + "/" + name + ".webp", "WEBP", quality=90, method=6)
+    Image.fromarray(np.dstack([np.clip(col, 0, 255), np.clip(alpha * 255, 0, 255)]).astype(np.uint8)).save(f"{out_dir}/{name}.webp", "WEBP", quality=90, method=6)
 
-# --- вафля: всё ниже дуги
-save("cone", clean, A * np.clip((yy - edge) / 2.5, 0, 1))
-
-# --- пломбир: всё выше дуги (+4 px нахлёст); тонируем только сливочные пиксели
-top = np.clip((edge + 4 - yy) / 2.5, 0, 1)
+soft = 2.5 * K
+save("cone", clean, A * np.clip((yy_ - edge) / soft, 0, 1))
+top = np.clip((edge + 4 * K - yy_) / soft, 0, 1)
 hc = cv2.cvtColor(clean.astype(np.uint8), cv2.COLOR_RGB2HSV).astype(np.float32)
 cr = np.clip((90 - hc[:, :, 1]) / 40, 0, 1) * np.clip((hc[:, :, 2] - 120) / 50, 0, 1)
-cr = cv2.GaussianBlur(cr, (5, 5), 0)[:, :, None]
-tints = {"strawberry": np.array([1.0, 0.955, 0.95]), "raspberry": np.array([1.0, 0.9, 0.93]), "blackberry": np.array([0.97, 0.94, 1.0])}
-for k, t in tints.items():
-    save("cream-" + k, clean * t * cr + clean * (1 - cr), A * top)
+cr = cv2.GaussianBlur(cr, (k(5), k(5)), 0)[:, :, None]
+tints = {"strawberry": np.array([1.0, 0.97, 0.965]), "raspberry": np.array([1.0, 0.92, 0.94]), "blackberry": np.array([0.975, 0.955, 1.0])}
+for name, t in tints.items():
+    save("cream-" + name, clean * t * cr + clean * (1 - cr), A * top)
 
-# --- соус: мягкая альфа по красной маске; клубника как на фото, остальные — по яркости с бликами
-sa = np.clip(cv2.GaussianBlur(red.astype(np.float32), (5, 5), 0) * 1.4, 0, 1) * A
+sa = np.clip(cv2.GaussianBlur(red.astype(np.float32), (k(5), k(5)), 0) * 1.4, 0, 1) * A
 SL = (rgb @ np.array([0.299, 0.587, 0.114]))[:, :, None] / 255
 spec = np.clip((SL - 0.62) / 0.3, 0, 1)
 def tint(base, g=1.2):
-    c = np.power(SL / 0.45, g) * np.array(base)
-    return c * (1 - spec) + 255 * spec * 0.85 + c * spec * 0.15
+    cc = np.power(SL / 0.45, g) * np.array(base)
+    return cc * (1 - spec) + 255 * spec * 0.85 + cc * spec * 0.15
 save("sauce-strawberry", rgb, sa)
 save("sauce-raspberry", tint([150, 14, 60], 1.15), sa)
 save("sauce-blackberry", tint([44, 10, 52]), sa)
 
-# превью
-bg = np.full((H2, W2, 3), (250, 226, 220), np.float32)
-tiles = []
-for k in ["strawberry", "raspberry", "blackberry"]:
-    t = bg.copy()
-    for n in ["cone", "cream-" + k] + (["sauce-" + k] if k != "strawberry" else []):
-        im = np.array(Image.open(o + "/" + n + ".webp")).astype(np.float32)
-        al = im[:, :, 3:] / 255
-        t = im[:, :, :3] * al + t * (1 - al)
-    tiles.append(t)
-Image.fromarray(np.hstack(tiles).astype(np.uint8)).resize((780, 731)).save(d + "/flavors.jpg")
+# --- профиль для 3D: центр и полуширина силуэта по строкам (доли ширины картинки)
+N = 220
+x0r, x1r = [], []
+for i in range(N + 1):
+    y = min(H - 1, int(i / N * (H - 1)))
+    xr = np.where(A[y] > 0.5)[0]
+    x0r.append(xr.min() if len(xr) else np.nan)
+    x1r.append(xr.max() if len(xr) else np.nan)
+x0r, x1r = np.array(x0r, float), np.array(x1r, float)
+idx = np.arange(N + 1)
+for arr in (x0r, x1r):
+    ok = ~np.isnan(arr)
+    arr[~ok] = np.interp(idx[~ok], idx[ok], arr[ok])
+kern = np.ones(5) / 5
+cxs = np.convolve((x0r + x1r) / 2, kern, "same")
+rs = np.convolve((x1r - x0r) / 2, kern, "same")
+cxs[:2] = ((x0r + x1r) / 2)[:2]; cxs[-2:] = ((x0r + x1r) / 2)[-2:]
+rs[:2] = ((x1r - x0r) / 2)[:2]; rs[-2:] = ((x1r - x0r) / 2)[-2:]
+rows = [{"v": round(1 - i / N, 5), "cx": round(float(cxs[i]) / W, 5), "r": round(max(0.002, float(rs[i])) / W, 5)} for i in range(N + 1)]
+json.dump({"w": W, "h": H, "rows": rows}, open(prof_path, "w"))
 
-# ================== 4x: детальное фото после EDSR, маски и заплатки из 2x ==================
-c4 = np.array(Image.open(d + "/cut4.png").convert("RGBA")).astype(np.float32)
-rgb4 = c4[:, :, :3]
-A4 = c4[:, :, 3] / 255
-H4, W4 = A4.shape
-up = lambda x: cv2.resize(x.astype(np.float32), (W4, H4), interpolation=cv2.INTER_CUBIC)
-# где 2x-версия «починена» (убран соус, заштопана вафля) — берём заплатку, остальное — резкое фото
-patched = (np.abs(clean - rgb).max(2) > 3).astype(np.float32)
-pm = np.clip(up(cv2.GaussianBlur(patched, (5, 5), 0)) * 1.5, 0, 1)[:, :, None]
-clean4 = rgb4 * (1 - pm) + up(clean) * pm
-yy4, xx4 = np.mgrid[0:H4, 0:W4].astype(np.float32)
-edge4 = 2 * (y0 + 18 * (((xx4 / 2) - cx) / hw) ** 2 - 6)
-def save4(name, col, alpha):
-    Image.fromarray(np.dstack([np.clip(col, 0, 255), np.clip(alpha * 255, 0, 255)]).astype(np.uint8)).save(o_final + "/" + name + ".webp", "WEBP", quality=88, method=6)
-save4("cone", clean4, A4 * np.clip((yy4 - edge4) / 5, 0, 1))
-top4 = np.clip((edge4 + 8 - yy4) / 5, 0, 1)
-hc4 = cv2.cvtColor(np.clip(clean4, 0, 255).astype(np.uint8), cv2.COLOR_RGB2HSV).astype(np.float32)
-cr4 = np.clip((90 - hc4[:, :, 1]) / 40, 0, 1) * np.clip((hc4[:, :, 2] - 120) / 50, 0, 1)
-cr4 = cv2.GaussianBlur(cr4, (9, 9), 0)[:, :, None]
-for k, t in tints.items():
-    save4("cream-" + k, clean4 * t * cr4 + clean4 * (1 - cr4), A4 * top4)
-sa4 = np.clip(up(sa), 0, 1)
-SL4 = (rgb4 @ np.array([0.299, 0.587, 0.114]))[:, :, None] / 255
-spec4 = np.clip((SL4 - 0.62) / 0.3, 0, 1)
-def tint4(base, g=1.2):
-    c = np.power(SL4 / 0.45, g) * np.array(base)
-    return c * (1 - spec4) + 255 * spec4 * 0.85 + c * spec4 * 0.15
-save4("sauce-strawberry", rgb4, sa4)
-save4("sauce-raspberry", tint4([150, 14, 60], 1.15), sa4)
-save4("sauce-blackberry", tint4([44, 10, 52]), sa4)
-# сравнение: фрагмент пломбира 2x (растянут) и 4x
-crop2 = Image.open(o + "/cream-strawberry.webp").convert("RGB").resize((W4, H4), Image.LANCZOS).crop((200, 400, 800, 1000))
-crop4 = Image.open(o_final + "/cream-strawberry.webp").convert("RGB").crop((200, 400, 800, 1000))
-cmp = Image.new("RGB", (1200, 600)); cmp.paste(crop2, (0, 0)); cmp.paste(crop4, (600, 0)); cmp.save(d + "/compare.jpg")
-print("ok", W4, H4)
+# превью трёх вкусов
+bg = np.full((H, W, 3), (250, 226, 220), np.float32)
+tiles = []
+for name in ["strawberry", "raspberry", "blackberry"]:
+    t = bg.copy()
+    for n in ["cone", "cream-" + name] + (["sauce-" + name] if name != "strawberry" else []):
+        q = np.array(Image.open(f"{out_dir}/{n}.webp")).astype(np.float32)
+        al = q[:, :, 3:] / 255
+        t = q[:, :, :3] * al + t * (1 - al)
+    tiles.append(t)
+Image.fromarray(np.hstack(tiles).astype(np.uint8)).resize((3 * 360, int(H * 360 / W))).save(dbg + "/new-flavors.jpg")
+print("ok", W, H)

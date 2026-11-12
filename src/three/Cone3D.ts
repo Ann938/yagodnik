@@ -128,6 +128,8 @@ type Cone = {
   cream: ReturnType<typeof photoMat>;
   creamNext: ReturnType<typeof photoMat>;
   creamNextMesh: THREE.Mesh;
+  sauceNext: ReturnType<typeof photoMat>;
+  sauceNextMesh: THREE.Mesh;
   sauce: ReturnType<typeof photoMat>;
   f: number;
 };
@@ -146,21 +148,35 @@ export function createCones(canvas: HTMLCanvasElement, onReady?: () => void) {
   key.position.set(-2, 3, 5);
   scene.add(key);
 
+  // текстуры: сначала только то, что видно на первом экране; остальные вкусы — после готовности
   const loader = new THREE.TextureLoader();
-  const tex = (name: string) => {
-    const t = loader.load(`${BASE}/cone/${name}.webp`);
+  const loaded = new Set<THREE.Texture>();
+  const lazy = (name: string) => {
+    const t = new THREE.Texture();
     t.colorSpace = THREE.SRGBColorSpace;
     t.anisotropy = 8;
-    return t;
+    const go = () =>
+      loader.load(`${BASE}/cone/${name}.webp`, (src) => {
+        t.image = src.image;
+        t.needsUpdate = true;
+        loaded.add(t);
+      });
+    return { t, go };
   };
-  const waffle = tex("cone");
-  const creams = IDS.map((id) => tex(`cream-${id}`));
-  const sauces = IDS.map((id) => tex(`sauce-${id}`));
+  const wafL = lazy("cone");
+  const creamL = IDS.map((id) => lazy(`cream-${id}`));
+  const sauceL = IDS.map((id) => lazy(`sauce-${id}`));
+  const waffle = wafL.t;
+  const creams = creamL.map((x) => x.t);
+  const sauces = sauceL.map((x) => x.t);
+  const f0 = stage.flavor;
+  [wafL, creamL[f0], sauceL[f0]].forEach((x) => x.go());
 
   const geoCone = bodyGeometry(1);
   const geoCream = bodyGeometry(1.004);
   const geoCream2 = bodyGeometry(1.007);
   const geoSauce = bodyGeometry(1.012);
+  const geoSauce2 = bodyGeometry(1.016);
 
   function makeCone(fi: number): Cone {
     const root = new THREE.Group();
@@ -178,17 +194,25 @@ export function createCones(canvas: HTMLCanvasElement, onReady?: () => void) {
     const sauceMesh = new THREE.Mesh(geoSauce, sauce.m);
     sauceMesh.renderOrder = 2;
     creamNextMesh.renderOrder = 1;
-    turn.add(new THREE.Mesh(geoCream, cream.m), creamNextMesh, sauceMesh);
+    // новый джем проступает поверх старого — вкус перетекает, «голый» пломбир не показывается
+    const sauceNext = photoMat(sauces[fi], "sauce");
+    sauceNext.u.uOpacity.value = 0;
+    const sauceNextMesh = new THREE.Mesh(geoSauce2, sauceNext.m);
+    sauceNextMesh.visible = false;
+    sauceNextMesh.renderOrder = 3;
+    turn.add(new THREE.Mesh(geoCream, cream.m), creamNextMesh, sauceMesh, sauceNextMesh);
     scene.add(root);
-    return { root, turn, cream, creamNext, creamNextMesh, sauce, f: fi };
+    return { root, turn, cream, creamNext, creamNextMesh, sauce, sauceNext, sauceNextMesh, f: fi };
   }
 
   const main = makeCone(stage.flavor);
 
   const need = [waffle, creams[main.f], sauces[main.f]];
   const check = () => {
-    if (need.every((t) => t.image && (t.image as HTMLImageElement).complete)) {
+    if (need.every((t) => loaded.has(t))) {
       onReady?.();
+      // остальные вкусы — в фоне, когда первый экран уже показан
+      setTimeout(() => IDS.forEach((_, i) => i !== f0 && (creamL[i].go(), sauceL[i].go())), 300);
     } else setTimeout(check, 50);
   };
   check();
@@ -248,6 +272,7 @@ export function createCones(canvas: HTMLCanvasElement, onReady?: () => void) {
   // рожок сразу налит и полит джемом: пломбир виден весь, соус — до кончиков капель
   main.cream.u.uPhi.value = PHI_MAX;
   main.sauce.u.uLo.value = SAUCE_BOTTOM - 0.06;
+  main.sauceNext.u.uLo.value = SAUCE_BOTTOM - 0.06;
 
   function frame(now: number) {
     raf = requestAnimationFrame(frame);
@@ -255,30 +280,28 @@ export function createCones(canvas: HTMLCanvasElement, onReady?: () => void) {
     last = now;
     t += dt;
 
-    // ---- смена вкуса: старый джем тает, пломбир перетекает в новый цвет, новый джем проявляется
-    if (stage.flavor !== target && swap >= 1) {
+    // ---- смена вкуса: новый джем и пломбир проступают поверх старых — цвет перетекает
+    if (stage.flavor !== target && swap >= 1 && loaded.has(sauces[stage.flavor]) && loaded.has(creams[stage.flavor])) {
       target = stage.flavor;
       swap = 0;
       main.creamNext.m.map = creams[target];
-      main.creamNextMesh.visible = true;
+      main.sauceNext.m.map = sauces[target];
+      main.creamNextMesh.visible = main.sauceNextMesh.visible = true;
     }
-    let sauceOpacity = 1;
     if (swap < 1) {
-      swap = Math.min(1, swap + dt / (reduced ? 0.01 : 0.9));
-      main.creamNext.m.opacity = Math.min(1, swap / 0.45);
-      if (swap < 0.45) sauceOpacity = 1 - swap / 0.45;
-      else {
-        if (main.f !== target) {
-          main.f = target;
-          main.cream.m.map = creams[target];
-          main.sauce.m.map = sauces[target];
-          main.creamNextMesh.visible = false;
-          main.creamNext.m.opacity = 0;
-        }
-        sauceOpacity = (swap - 0.45) / 0.55;
+      swap = Math.min(1, swap + dt / (reduced ? 0.01 : 0.7));
+      const k = swap * swap * (3 - 2 * swap);
+      main.creamNext.m.opacity = k;
+      main.sauceNext.u.uOpacity.value = k;
+      if (swap >= 1) {
+        main.f = target;
+        main.cream.m.map = creams[target];
+        main.sauce.m.map = sauces[target];
+        main.creamNextMesh.visible = main.sauceNextMesh.visible = false;
+        main.creamNext.m.opacity = 0;
+        main.sauceNext.u.uOpacity.value = 0;
       }
     }
-    main.sauce.u.uOpacity.value = sauceOpacity;
 
     // ---- поза по разделам; рожок мягко покачивается, мышь добавляет поворот и наклон
     let p = P.hero;
