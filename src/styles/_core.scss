@@ -68,6 +68,7 @@ $m-content: 358;
 }
 
 // ---- Кнопки ----
+// На МВ шрифт кнопок не меньше 14 px: u() на узких экранах уменьшает кегль, поэтому max(14px, …).
 // Главная — заливка цветом вкуса. Ховер: изнутри поднимается «сливочная» волна.
 @mixin btn($h: 60) {
   position: relative;
@@ -104,7 +105,7 @@ $m-content: 358;
   &:active { transform: scale(0.97); }
   &:focus-visible { outline: u(2) solid var(--ink); outline-offset: u(4); }
   // на МВ главные кнопки — во всю ширину колонки
-  @include mobile { width: 100%; height: u(54); font-size: u(14); }
+  @include mobile { width: 100%; height: u(54); font-size: max(14px, #{u(14)}); }
 }
 @mixin btn-ghost($h: 48) {
   display: inline-flex;

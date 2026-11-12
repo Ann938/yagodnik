@@ -130,6 +130,10 @@
     transition: opacity 0.4s var(--ease);
   }
   &[data-scrolled]::before { opacity: 1; }
+  transition: translate 0.45s var(--ease);
+  &[data-hidden] { translate: 0 -110%; }
+  // открытое меню/фокус с клавиатуры — шапка не прячется
+  &:focus-within { translate: none; }
   @include mobile {
     width: u($m-content);
     height: u(68);
@@ -182,7 +186,7 @@
 }
 .headerBtn {
   @include btn-ghost;
-  @include mobile { height: u(40); padding-inline: u(16); font-size: u(14); }
+  @include mobile { height: u(40); padding-inline: u(16); font-size: max(14px, #{u(14)}); }
 }
 
 // ---------- 01 · первый экран ----------

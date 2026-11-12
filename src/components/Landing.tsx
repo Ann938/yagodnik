@@ -144,10 +144,20 @@ export default function Landing() {
     return () => ctx.revert();
   }, [choose]);
 
-  // шапка получает подложку, когда страница уехала с первого экрана
+  // шапка: подложка после первого экрана; при скролле вниз уезжает, при скролле вверх возвращается
   const [scrolled, setScrolled] = useState(false);
+  const [hidden, setHidden] = useState(false);
   useEffect(() => {
-    const on = () => setScrolled(window.scrollY > 40);
+    let last = window.scrollY;
+    const on = () => {
+      const y = window.scrollY;
+      setScrolled(y > 40);
+      const d = y - last;
+      if (Math.abs(d) > 6) {
+        setHidden(d > 0 && y > 120); // у самого верха шапка видна всегда
+        last = y;
+      }
+    };
     on();
     window.addEventListener("scroll", on, { passive: true });
     return () => window.removeEventListener("scroll", on);
@@ -172,7 +182,7 @@ export default function Landing() {
       <Product />
       <Fruits flavor={flavor} layer="front" />
 
-      <header className={s.header} data-scrolled={scrolled || undefined}>
+      <header className={s.header} data-scrolled={scrolled || undefined} data-hidden={hidden || undefined}>
         <a href="#top" aria-label="Ягодник — наверх">
           <Logo />
         </a>
