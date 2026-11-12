@@ -206,8 +206,9 @@ export function createCones(canvas: HTMLCanvasElement, onReady?: () => void) {
     turn.visible = stage.away < 0.999;
     ptr.sx += (ptr.x - ptr.sx) * (1 - Math.exp(-4 * dt));
     ptr.sy += (ptr.y - ptr.sy) * (1 - Math.exp(-4 * dt));
-    const swing = reduced ? 0 : Math.sin(t * 0.45) * 0.38;
-    turn.rotation.y = swing + ptr.sx * 0.7;
+    // сзади у фото нет настоящей стороны — поворот держим в пределах ~25°, чтобы бока не тянулись
+    const swing = reduced ? 0 : Math.sin(t * 0.45) * 0.22;
+    turn.rotation.y = swing + ptr.sx * 0.42;
     turn.rotation.x = ptr.sy * 0.25;
 
     renderer.render(scene, camera);

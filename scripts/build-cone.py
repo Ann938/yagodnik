@@ -36,12 +36,39 @@ tip = int(H * 0.07)
 opened[:tip] = body[:tip]
 n, lab, st, _ = cv2.connectedComponentsWithStats(opened, 8)
 core = (lab == 1 + np.argmax(st[1:, cv2.CC_STAT_AREA])).astype(np.uint8)
-# сплошная форма: всё между левым и правым краем тела в каждой строке
+# края вафли — прямые: подгоняем линии по чистой вафле внизу (60–92 % высоты) и продлеваем до кромки.
+# Ниже кромки всё, что за этими линиями (капли, свисающие сбоку), отрезаем — иначе при повороте там «дыра».
+ry = np.arange(int(H * 0.6), int(H * 0.92))
+lx = np.array([np.where(core[y])[0].min() for y in ry])
+rx = np.array([np.where(core[y])[0].max() for y in ry])
+lfit, rfit = np.polyfit(ry, lx, 1), np.polyfit(ry, rx, 1)
+# кромка: самая нижняя точка пломбира по центру рожка (светлое и почти бесцветное)
+c0 = ims["strawberry"][y0:y1, x0:x1]
+hsv0 = cv2.cvtColor(c0[:, :, :3], cv2.COLOR_RGB2HSV)
+cream = (hsv0[:, :, 1] < 70) & (hsv0[:, :, 2] > 170) & (c0[:, :, 3] > 200)
+mid = (np.polyval(lfit, H * 0.5) + np.polyval(rfit, H * 0.5)) / 2
+band = cream[:, int(mid - W * 0.12) : int(mid + W * 0.12)]
+rows_c = np.where(band.sum(1) >= int(W * 0.04))[0]
+rows_c = rows_c[rows_c < H * 0.62]  # блики на вафле ниже — не пломбир
+rim_y = int(rows_c.max()) if len(rows_c) else int(H * 0.5)
+print("rim", rim_y, "of", H)
+# сплошная форма: в строке — от левого до правого края тела; ниже кромки — не шире конуса
+TAPER = int(H * 0.035)
 fill = np.zeros_like(core)
 for y in range(H):
     xr = np.where(core[y])[0]
-    if len(xr):
-        fill[y, xr.min() : xr.max() + 1] = 1
+    if not len(xr):
+        continue
+    a0, a1 = xr.min(), xr.max()
+    if y >= rim_y:
+        # ниже кромки выступ за край вафли плавно сходит на нет (как закруглённый кончик капли), без ступеньки
+        t = min(1.0, (y - rim_y) / TAPER)
+        keep = (1 - t) ** 2 * (3 - 2 * (1 - t)) if t < 1 else 0.0  # smoothstep наоборот
+        cl, cr = np.polyval(lfit, y) - 1, np.polyval(rfit, y) + 1
+        a0 = int(round(max(a0, cl - max(0, cl - a0) * keep)))
+        a1 = int(round(min(a1, cr + max(0, a1 - cr) * keep)))
+    if a1 > a0:
+        fill[y, a0 : a1 + 1] = 1
 fill_soft = cv2.GaussianBlur(fill.astype(np.float32), (3, 3), 0)
 
 for k, a in ims.items():

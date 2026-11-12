@@ -232,7 +232,7 @@ export default function Landing() {
             </div>
             <p className={s.lead}>{hero.lead}</p>
             <div className={s.heroActions}>
-              <a href="#flavors" className={s.btn}>
+              <a href="#find" className={s.btn}>
                 {hero.cta}
                 <Arrow />
               </a>
