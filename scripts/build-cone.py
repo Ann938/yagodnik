@@ -55,18 +55,37 @@ def body_fill(v):
 def jam_mask(v, rim):
     hsv = cv2.cvtColor(v[:, :, :3], cv2.COLOR_RGB2HSV).astype(np.float32)
     h, s = hsv[:, :, 0], hsv[:, :, 1]
+    rgbf = v[:, :, :3].astype(np.float32)
     fg = v[:, :, 3] > 20
-    H = v.shape[0]
-    yy = np.arange(H)[:, None]
-    core = ((h < 9) | (h > 165)) & (s > 95) & fg
-    soft = ((h < 15) | (h > 150)) & (s > 38) & fg & (yy < rim)  # на пломбире джем бывает полупрозрачным
+    # джем заметно краснее всего остального: вафля рыжая (R/G ≈ 1.35), тени пломбира тёплые (≈ 1.1), джем — от 1.6
+    redness = rgbf[:, :, 0] / np.maximum(rgbf[:, :, 1], 1)
+    core = ((h < 9) | (h > 165)) & (s > 95) & fg & (redness > 1.7)
+    soft = ((h < 11) | (h > 162)) & (s > 50) & fg & (redness > 1.55)  # полупрозрачный джем на пломбире
     m = (core | soft).astype(np.uint8)
     m = cv2.morphologyEx(m, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
     m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9)))
     return np.clip(cv2.GaussianBlur(m.astype(np.float32), (5, 5), 0) * 1.3, 0, 1)
 
-# перекраска джема: тон и насыщенность — как у ягоды, яркость (рельеф, семечки, блики) — с фото
-JAM = {"raspberry": (171, 1.0, 0.86), "blackberry": (161, 0.82, 0.4)}  # тон OpenCV (0–180), × насыщенность, × яркость
+# перекраска джема: палитра с настоящих фото пользователя (малина, ежевика) — по яркости.
+# Каждому пикселю клубничного джема даём цвет той же «доли яркости» из настоящего джема: тени, семечки, блики сохраняются.
+REF = {
+    "raspberry": "C:/Users/slida/Downloads/Ванильное мороженое с малиновым джемом.png",
+    "blackberry": "C:/Users/slida/Downloads/Ванильное мороженое с ежевичным джемом-1.png",
+}
+def ref_palette(path):
+    r = np.array(Image.open(path).convert("RGBA"))
+    hsv = cv2.cvtColor(r[:, :, :3], cv2.COLOR_RGB2HSV).astype(np.float32)
+    h, s_, v = hsv[:, :, 0], hsv[:, :, 1], hsv[:, :, 2]
+    # джем на фото: пурпурно-малиновый, насыщенный (вафля — оранжевая, пломбир — бесцветный)
+    m = (r[:, :, 3] > 200) & (((h >= 130) & (s_ > 60)) | ((h < 6) & (s_ > 90) & (v < 200)))
+    px = r[:, :, :3][m].astype(np.float32)
+    lum = px @ np.array([0.299, 0.587, 0.114])
+    order = np.argsort(lum)
+    px = px[order]
+    # 256 ступеней по доле яркости: средний цвет каждой
+    bins = np.array_split(np.arange(len(px)), 256)
+    return np.array([px[b].mean(0) for b in bins])
+PAL = {k: ref_palette(v) for k, v in REF.items()}
 
 tiles = {k: [] for k in ["strawberry", "raspberry", "blackberry"]}
 prof_views = []
@@ -84,13 +103,14 @@ for k, v in enumerate(views):
         if name == "strawberry":
             col = rgb.astype(np.float32)
         else:
-            hue, sm, vm = JAM[name]
-            h2 = hsv.copy()
-            spec = np.clip((hsv[:, :, 2] - 225) / 30, 0, 1) * np.clip((90 - hsv[:, :, 1]) / 60, 0, 1)  # блики оставляем светлыми
-            h2[:, :, 0] = hue
-            h2[:, :, 1] = np.clip(hsv[:, :, 1] * sm, 0, 255)
-            h2[:, :, 2] = np.clip(hsv[:, :, 2] * (vm + (1 - vm) * spec), 0, 255)
-            jamc = cv2.cvtColor(h2.astype(np.uint8), cv2.COLOR_HSV2RGB).astype(np.float32)
+            # доля яркости пикселя среди всего джема этого ракурса → цвет той же доли у настоящего джема
+            lum = rgb.astype(np.float32) @ np.array([0.299, 0.587, 0.114])
+            sel = jm[:, :, 0] > 0.3
+            ranks = np.zeros_like(lum)
+            vals = np.sort(lum[sel])
+            ranks = np.searchsorted(vals, lum) / max(1, len(vals))
+            idx = np.clip((ranks * 255).astype(int), 0, 255)
+            jamc = PAL[name][idx]
             col = rgb.astype(np.float32) * (1 - jm) + jamc * jm
         t = np.zeros((TH, TW, 4), np.uint8)
         t[:, off : off + W, :3] = np.clip(col, 0, 255).astype(np.uint8)

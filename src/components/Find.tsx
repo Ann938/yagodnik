@@ -39,7 +39,7 @@ const yandex = (place: string, city: string) => `https://yandex.ru/maps/?text=${
 const gis = (slug: string) => `https://2gis.ru/${slug}/search/${encodeURIComponent("мороженое")}`;
 
 // Блок «Киоски»: заголовок и переключатель городов сверху, ниже — карта в рамке со списком киосков поверх.
-// Метки пронумерованы и связаны со списком: наведение на строку подсвечивает метку и наоборот.
+// Метки связаны со списком: наведение на строку подсвечивает метку и наоборот.
 export default function Find() {
   const [ci, setCi] = useState(0);
   const [hot, setHot] = useState<number | null>(null);
@@ -132,10 +132,6 @@ export default function Find() {
                       <g transform="translate(-21 -62) scale(1.32)">
                         <Mark />
                       </g>
-                      <circle className={s.numBg} cx="22" cy="-62" r="12" />
-                      <text className={s.num} x="22" y="-57.5" textAnchor="middle">
-                        {i + 1}
-                      </text>
                       <text className={s.pinLabel} y="28" textAnchor="middle">
                         {k.name}
                       </text>
@@ -170,7 +166,7 @@ export default function Find() {
                   onFocus={() => setHot(i)}
                   onBlur={() => setHot(null)}
                 >
-                  <span className={s.n}>{i + 1}</span>
+                  <i className={s.dot} />
                   {k.name}
                   <Arrow />
                 </a>
