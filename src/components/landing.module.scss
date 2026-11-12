@@ -360,6 +360,7 @@
 .flavors {
   height: 330svh;
 }
+.flvSpot { display: none; }
 .flvText {
   position: relative;
   width: u(600);
@@ -641,6 +642,18 @@
   .sticky {
     align-items: flex-end;
     padding-bottom: u(28);
+  }
+  // блок вкусов: рожок занимает место между шапкой и карточкой, карточка — внизу; вместе по центру экрана
+  .flavors .sticky {
+    flex-direction: column;
+    align-items: stretch;
+    padding-top: u(76);
+    padding-bottom: u(18);
+  }
+  .flvSpot {
+    display: block;
+    flex: 1 1 0;
+    min-height: u(160);
   }
   .pourText,
   .flvText {

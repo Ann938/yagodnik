@@ -231,6 +231,12 @@ export function createCones(canvas: HTMLCanvasElement, onReady?: () => void) {
     const top = r.top + window.scrollY;
     const vh = window.innerHeight;
     P.hero = { ...POSES.mob.hero, y: ((top + r.height / 2) / vh) * 100, h: (r.height / vh) * 100 };
+    // блок вкусов: место внутри закреплённого экрана — считаем от его верха (sticky стоит на top: 0)
+    const fs = document.querySelector<HTMLElement>("[data-flv-spot]");
+    if (fs && fs.offsetHeight > 0) {
+      const y = fs.offsetTop;
+      P.flv = { ...POSES.mob.flv, y: ((y + fs.offsetHeight / 2) / vh) * 100, h: (fs.offsetHeight / vh) * 100 * 0.96 };
+    }
   };
   fitSpot();
   window.addEventListener("resize", fitSpot);

@@ -250,6 +250,8 @@ export default function Landing() {
         {/* ---------- 03 · вкусы ---------- */}
         <section id="flavors" className={s.flavors}>
           <div className={s.sticky}>
+            {/* МВ: место под рожок между шапкой и карточкой вкуса — сцена берёт отсюда позу рожка */}
+            <div className={s.flvSpot} data-flv-spot aria-hidden />
             <div className={s.flvText}>
               <div className={s.flvTabs}>
                 {flavors.map((fl, i) => (
