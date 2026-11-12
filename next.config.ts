@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 // Для GitHub Pages сайт собирается статикой и живёт в подпапке
-// (ann938.github.io/sugrob/). Подпапку задаёт NEXT_PUBLIC_BASE_PATH
+// (ann938.github.io/yagodnik/). Подпапку задаёт NEXT_PUBLIC_BASE_PATH
 // при `npm run deploy`; в разработке она пустая.
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
 const pages = process.env.PAGES_EXPORT === "1";
