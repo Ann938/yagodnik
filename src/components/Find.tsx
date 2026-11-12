@@ -211,6 +211,9 @@ export default function Find() {
           {cities.map((c, i) => (
             <button key={c.id} type="button" role="tab" aria-selected={i === ci} onClick={() => (setCi(i), setHot(null))}>
               {c.name}
+              <span className={s.count} aria-label={`${c.kiosks.length} киосков`}>
+                {c.kiosks.length}
+              </span>
             </button>
           ))}
         </div>
@@ -222,9 +225,6 @@ export default function Find() {
         </div>
 
         <div className={s.panel}>
-          <p className={s.panelTitle}>
-            {city.name} · {city.kiosks.length} киосков
-          </p>
           <ol className={s.list} key={city.id}>
             {city.kiosks.map((k, i) => (
               <li key={k.name} style={{ ["--i" as string]: i }}>

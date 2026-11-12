@@ -20,6 +20,7 @@ export default function Smooth() {
     if (!reduced && !touch) {
       lenis = new Lenis({ duration: 1.15, smoothWheel: true, anchors: { offset: -72 } });
       lenis.on("scroll", ScrollTrigger.update);
+      (window as unknown as { __lenis?: Lenis }).__lenis = lenis; // прокрутка к вкусу по клику
       raf = (t: number) => lenis!.raf(t * 1000);
       gsap.ticker.add(raf);
       gsap.ticker.lagSmoothing(0);

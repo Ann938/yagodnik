@@ -155,6 +155,16 @@ export default function Landing() {
     return () => window.removeEventListener("scroll", on);
   }, []);
 
+  // клик по «02 · Ежевика»: прокрутка к середине отрезка этого вкуса в закреплённом блоке
+  const goFlavor = (i: number) => {
+    const sec = document.getElementById("flavors");
+    if (!sec) return;
+    const top = sec.getBoundingClientRect().top + window.scrollY;
+    const y = top + ((i + 0.5) / 3) * (sec.offsetHeight - window.innerHeight);
+    const lenis = (window as unknown as { __lenis?: { scrollTo: (y: number, o?: object) => void } }).__lenis;
+    if (lenis) lenis.scrollTo(y, { duration: 1.1 });
+    else window.scrollTo({ top: y, behavior: "smooth" });
+  };
   const f = flavors[flavor];
 
   return (
@@ -255,11 +265,13 @@ export default function Landing() {
             {/* МВ: место под рожок между шапкой и карточкой вкуса — сцена берёт отсюда позу рожка */}
             <div className={s.flvSpot} data-flv-spot aria-hidden />
             <div className={s.flvText}>
-              <div className={s.flvTabs}>
+              <div className={s.flvTabs} role="group" aria-label="Вкусы по порядку">
                 {flavors.map((fl, i) => (
-                  <span key={fl.id} data-on={i === flavor || undefined}>
-                    0{i + 1} · {fl.name}
-                  </span>
+                  <button key={fl.id} type="button" data-on={i === flavor || undefined} aria-pressed={i === flavor} onClick={() => goFlavor(i)}>
+                    <b>0{i + 1}</b>
+                    <i> · </i>
+                    {fl.name}
+                  </button>
                 ))}
               </div>
               <div className={s.flvSwap} key={f.id}>

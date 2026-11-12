@@ -350,12 +350,19 @@
   display: flex;
   gap: u(20);
   margin-bottom: u(36);
-  @include type-label;
-  span {
+  button {
+    @include type-label;
+    padding-block: u(6);
     color: var(--muted);
     opacity: 0.55;
+    cursor: pointer;
     transition: opacity 0.4s, color 0.4s;
+    @media (hover: hover) {
+      &:hover { opacity: 1; }
+    }
     &[data-on] { opacity: 1; color: var(--accent); }
+    &:focus-visible { outline: u(2) solid var(--ink); outline-offset: u(4); border-radius: u(4); }
+    b, i { font: inherit; }
   }
 }
 .flvSwap {
@@ -627,7 +634,23 @@
     b { font-size: u(28); letter-spacing: u(-1); }
     span { font-size: u(14); line-height: 1.45; }
   }
-  .flvTabs { display: none; } // на МВ вкус и так виден по заголовку и цвету
+  // на МВ вкусы — под полосой прокрутки
+  .flvText { display: flex; flex-direction: column; }
+  .flvTabs {
+    order: 3;
+    justify-content: space-between;
+    gap: u(8);
+    margin: u(12) 0 0;
+    button {
+      font-size: max(14px, #{u(14)});
+      font-weight: 600;
+      letter-spacing: 0;
+      text-transform: none;
+      padding-block: u(6);
+      b { font-weight: 800; margin-right: u(5); }
+      i { display: none; }
+    }
+  }
   .flvSwap {
     .h2 { margin-top: u(10); }
     .body { margin-top: u(12); font-size: u(14); }
