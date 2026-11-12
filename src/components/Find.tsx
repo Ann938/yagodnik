@@ -22,7 +22,6 @@ function Mark() {
       </g>
       <path d="M16 10.2C14.8 6.6 11.8 5 8.4 5.6c.6 3.6 3.6 5.2 7.6 4.6z" fill="#4f8f3a" />
       <path d="M16 10.2c1.2-3.8 4.3-5.4 7.8-4.7-.7 3.7-3.8 5.4-7.8 4.7z" fill="#6fae4f" />
-      <path d="M16 10.4V7" stroke="#3f7a2e" strokeWidth="1.2" strokeLinecap="round" />
     </g>
   );
 }
@@ -35,94 +34,149 @@ function Arrow() {
   );
 }
 
-// внешние карты: метка → Яндекс Карты с этим местом; кнопка и свободная часть карты → 2ГИС по городу
+// внешние карты: метка и строка списка → Яндекс Карты с этим местом; кнопка и свободная часть карты → 2ГИС по городу
 const yandex = (place: string, city: string) => `https://yandex.ru/maps/?text=${encodeURIComponent(`${place}, ${city}`)}`;
 const gis = (slug: string) => `https://2gis.ru/${slug}/search/${encodeURIComponent("мороженое")}`;
 
-// Блок «Где найти»: на фоне — стилизованная карта выбранного города, киоски отмечены знаком «Ягодника».
-// Смена города: карта мягко проявляется с лёгким приближением, метки падают по очереди.
+// Блок «Киоски»: заголовок и переключатель городов сверху, ниже — карта в рамке со списком киосков поверх.
+// Метки пронумерованы и связаны со списком: наведение на строку подсвечивает метку и наоборот.
 export default function Find() {
   const [ci, setCi] = useState(0);
+  const [hot, setHot] = useState<number | null>(null);
   const city = cities[ci];
 
   return (
     <section id="find" className={s.find}>
-      <div className={s.mapWrap}>
-        {/* клик по свободной части карты — город в 2ГИС */}
-        <a className={s.mapLink} href={gis(city.gis)} target="_blank" rel="noopener noreferrer" aria-label={`${city.name} в 2ГИС`} />
-        <svg className={s.map} viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
-          <defs>
-            <pattern id={`blocks-${city.id}`} width="64" height="48" patternUnits="userSpaceOnUse" patternTransform={`rotate(${city.rot})`}>
-              <rect x="4" y="4" width="56" height="40" rx="7" className={s.block} />
-            </pattern>
-            <radialGradient id="mapFade" cx="62%" cy="50%" r="70%">
-              <stop offset="0.55" stopColor="#fff" />
-              <stop offset="1" stopColor="#000" />
-            </radialGradient>
-            <mask id="mapMask">
-              <rect width="1440" height="900" fill="url(#mapFade)" />
-            </mask>
-          </defs>
-          <g key={city.id} className={s.city} mask="url(#mapMask)">
-            <rect width="1440" height="900" fill={`url(#blocks-${city.id})`} />
-            {city.parks.map((p, i) => (
-              <ellipse key={i} className={s.park} cx={p.cx} cy={p.cy} rx={p.rx} ry={p.ry} transform={p.rot ? `rotate(${p.rot} ${p.cx} ${p.cy})` : undefined} />
-            ))}
-            {city.water.map((w, i) =>
-              w.w ? <path key={i} className={s.river} d={w.d} strokeWidth={w.w} /> : <path key={i} className={s.lake} d={w.d} />,
-            )}
-            {city.roads.map((r, i) => (
-              <path key={i} className={r.main ? s.roadMain : s.road} d={r.d} />
-            ))}
-          </g>
-          <g key={`pins-${city.id}`}>
-            {city.kiosks.map((k, i) => (
-              <a key={k.name} href={yandex(k.name, city.name)} target="_blank" rel="noopener noreferrer" aria-label={`${k.name} на Яндекс Картах`}>
-              <g className={s.pin} transform={`translate(${k.x} ${k.y})`} style={{ ["--i" as string]: i }}>
-                <ellipse className={s.pulse} rx="26" ry="9" />
-                <g className={s.drop}>
-                  {/* метка: белый кружок с хвостиком, внутри знак бренда */}
-                  <path className={s.badge} d="M0 0 L-9 -16 A 27 27 0 1 1 9 -16 Z" />
-                  <g transform="translate(-21 -62) scale(1.32)">
-                    <Mark />
-                  </g>
-                  <text className={s.label} y="28" textAnchor="middle">
-                    {k.name}
-                  </text>
-                </g>
-              </g>
-              </a>
-            ))}
-          </g>
-        </svg>
-      </div>
-
-      <div className={s.card}>
-        <p className={s.label2} data-reveal>
-          {find.label}
-        </p>
-        <h2 className={s.h2} data-reveal style={{ ["--d" as string]: 1 }}>
-          {find.title}
-        </h2>
-        <p className={s.body} data-reveal style={{ ["--d" as string]: 2 }}>
-          {find.text}
-        </p>
-        <div className={s.cities} role="group" aria-label="Город" data-reveal style={{ ["--d" as string]: 3 }}>
+      <div className={s.head}>
+        <div>
+          <p className={s.label} data-reveal>
+            {find.label}
+          </p>
+          <h2 className={s.h2} data-reveal style={{ ["--d" as string]: 1 }}>
+            {find.title}
+          </h2>
+          <p className={s.body} data-reveal style={{ ["--d" as string]: 2 }}>
+            {find.text}
+          </p>
+        </div>
+        <div className={s.tabs} role="tablist" aria-label="Город" data-reveal style={{ ["--d" as string]: 3, ["--n" as string]: cities.length } as React.CSSProperties}>
           {cities.map((c, i) => (
-            <button key={c.id} type="button" aria-pressed={i === ci} onClick={() => setCi(i)}>
+            <button key={c.id} type="button" role="tab" aria-selected={i === ci} onClick={() => (setCi(i), setHot(null))}>
               {c.name}
             </button>
           ))}
         </div>
-        <ul className={s.list} key={city.id}>
-          {city.kiosks.map((k, i) => (
-            <li key={k.name} style={{ ["--i" as string]: i }}>
-              <i />
-              {k.name}
-            </li>
-          ))}
-        </ul>
-        <div className={s.bottom} data-reveal style={{ ["--d" as string]: 4 }}>
+      </div>
+
+      <div className={s.frame} data-reveal style={{ ["--d" as string]: 2 }}>
+        <div className={s.mapWrap}>
+          {/* клик по свободной части карты — город в 2ГИС */}
+          <a className={s.mapLink} href={gis(city.gis)} target="_blank" rel="noopener noreferrer" aria-label={`${city.name} в 2ГИС`} />
+          <svg className={s.map} viewBox="0 0 1440 900" preserveAspectRatio="xMaxYMid slice">
+            <defs>
+              <pattern id={`blocks-${city.id}`} width="64" height="48" patternUnits="userSpaceOnUse" patternTransform={`rotate(${city.rot})`}>
+                <rect x="4" y="4" width="56" height="40" rx="9" className={s.block} />
+              </pattern>
+              <linearGradient id="water" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stopColor="#a9d0e6" />
+                <stop offset="1" stopColor="#c3b9e8" />
+              </linearGradient>
+              <pattern id="trees" width="22" height="22" patternUnits="userSpaceOnUse">
+                <circle cx="6" cy="7" r="3.2" className={s.tree} />
+                <circle cx="16" cy="16" r="2.6" className={s.tree} />
+              </pattern>
+            </defs>
+            <g key={city.id} className={s.city}>
+              <rect width="1440" height="900" className={s.land} />
+              <rect width="1440" height="900" fill={`url(#blocks-${city.id})`} />
+              {city.parks.map((p, i) => (
+                <g key={i} transform={p.rot ? `rotate(${p.rot} ${p.cx} ${p.cy})` : undefined}>
+                  <ellipse className={s.park} cx={p.cx} cy={p.cy} rx={p.rx} ry={p.ry} />
+                  <ellipse fill="url(#trees)" cx={p.cx} cy={p.cy} rx={p.rx * 0.86} ry={p.ry * 0.8} />
+                </g>
+              ))}
+              {city.water.map((w, i) =>
+                w.w ? (
+                  <g key={i}>
+                    <path className={s.bank} d={w.d} strokeWidth={w.w + 10} />
+                    <path className={s.river} d={w.d} strokeWidth={w.w} />
+                  </g>
+                ) : (
+                  <path key={i} className={s.lake} d={w.d} />
+                ),
+              )}
+              {city.roads.map((r, i) => (
+                <g key={i}>
+                  <path className={s.roadEdge} d={r.d} strokeWidth={r.main ? 15 : 8} />
+                  <path className={s.road} d={r.d} strokeWidth={r.main ? 11 : 5} />
+                </g>
+              ))}
+              <text className={s.watermark} x="1400" y="770" textAnchor="end">
+                {city.name}
+              </text>
+            </g>
+            <g key={`pins-${city.id}`}>
+              {city.kiosks.map((k, i) => (
+                <a key={k.name} href={yandex(k.name, city.name)} target="_blank" rel="noopener noreferrer" aria-label={`${k.name} на Яндекс Картах`}>
+                  <g
+                    className={s.pin}
+                    data-hot={hot === i || undefined}
+                    transform={`translate(${k.x} ${k.y})`}
+                    style={{ ["--i" as string]: i }}
+                    onMouseEnter={() => setHot(i)}
+                    onMouseLeave={() => setHot(null)}
+                  >
+                    <ellipse className={s.pulse} rx="26" ry="9" />
+                    <g className={s.drop}>
+                      <path className={s.badge} d="M0 0 L-9 -16 A 27 27 0 1 1 9 -16 Z" />
+                      <g transform="translate(-21 -62) scale(1.32)">
+                        <Mark />
+                      </g>
+                      <circle className={s.numBg} cx="22" cy="-62" r="12" />
+                      <text className={s.num} x="22" y="-57.5" textAnchor="middle">
+                        {i + 1}
+                      </text>
+                      <text className={s.pinLabel} y="28" textAnchor="middle">
+                        {k.name}
+                      </text>
+                    </g>
+                  </g>
+                </a>
+              ))}
+            </g>
+          </svg>
+          {/* роза ветров — для ощущения настоящей карты */}
+          <svg className={s.compass} viewBox="0 0 40 40" aria-hidden>
+            <circle cx="20" cy="20" r="19" />
+            <path d="M20 5 L24 20 L20 18 L16 20 Z" className={s.north} />
+            <path d="M20 35 L16 20 L20 22 L24 20 Z" />
+          </svg>
+        </div>
+
+        <div className={s.panel}>
+          <p className={s.panelTitle}>
+            {city.name} · {city.kiosks.length} киосков
+          </p>
+          <ol className={s.list} key={city.id}>
+            {city.kiosks.map((k, i) => (
+              <li key={k.name} style={{ ["--i" as string]: i }}>
+                <a
+                  href={yandex(k.name, city.name)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-hot={hot === i || undefined}
+                  onMouseEnter={() => setHot(i)}
+                  onMouseLeave={() => setHot(null)}
+                  onFocus={() => setHot(i)}
+                  onBlur={() => setHot(null)}
+                >
+                  <span className={s.n}>{i + 1}</span>
+                  {k.name}
+                  <Arrow />
+                </a>
+              </li>
+            ))}
+          </ol>
           <a href={gis(city.gis)} target="_blank" rel="noopener noreferrer" className={s.btn}>
             {find.cta}
             <Arrow />
