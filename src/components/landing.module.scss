@@ -1,0 +1,635 @@
+@use "styles/core" as *;
+
+// Слои: волна новой заливки (0) → 3D-канвас (1) → контент (2) → шапка (10)
+
+.page {
+  position: relative;
+}
+
+// ---------- волна смены вкуса ----------
+.wave {
+  position: fixed;
+  z-index: 0;
+  left: 0;
+  right: 0;
+  top: u(-140);
+  height: calc(100lvh + #{u(140)});
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+  visibility: hidden;
+  will-change: transform;
+  svg {
+    width: 100%;
+    height: u(140);
+    flex: none;
+  }
+  div {
+    flex: 1;
+    margin-top: -1px;
+    background: currentColor;
+  }
+}
+
+.canvas {
+  position: fixed;
+  z-index: 1;
+  inset: 0;
+  width: 100%;
+  height: 100lvh;
+  pointer-events: none;
+  opacity: 0;
+  transform: scale(1.04);
+  transition: opacity 1.2s var(--ease), transform 1.6s var(--ease);
+  &[data-ready] {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.main,
+.footer {
+  position: relative;
+  z-index: 2;
+}
+
+// ---------- общие ----------
+.h1 {
+  @include type-h1;
+  span { display: block; }
+}
+.h2 {
+  @include type-h2;
+}
+.h3 {
+  @include type-h3;
+}
+.lead {
+  @include type-lead;
+  color: var(--muted);
+}
+.body {
+  @include type-body;
+  color: var(--muted);
+}
+.label {
+  @include type-label;
+  color: var(--accent);
+  transition: color 0.6s var(--ease);
+}
+.btn {
+  @include btn;
+}
+.sticky {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  display: flex;
+  align-items: center;
+  @include container;
+}
+
+// ---------- шапка ----------
+.header {
+  position: fixed;
+  z-index: 10;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: u($content);
+  height: u(96);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  // подложка на всю ширину экрана: цвет вкуса с размытием
+  &::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 100vw;
+    transform: translateX(-50%);
+    background: color-mix(in srgb, var(--bg) 78%, transparent);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: u(1) solid var(--line);
+    opacity: 0;
+    transition: opacity 0.4s var(--ease);
+  }
+  &[data-scrolled]::before { opacity: 1; }
+  @include mobile {
+    width: u($m-content);
+    height: u(68);
+  }
+}
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: u(10);
+  @include display;
+  font-weight: 800;
+  font-size: u(22);
+  letter-spacing: u(-0.6);
+  svg {
+    width: u(34);
+    height: u(34);
+    rect { transition: fill 0.6s var(--ease); }
+  }
+  @include mobile {
+    font-size: u(18);
+    svg { width: u(28); height: u(28); }
+  }
+}
+.nav {
+  display: flex;
+  gap: u(36);
+  font-weight: 600;
+  font-size: u(15);
+  a {
+    position: relative;
+    padding-block: u(6);
+    &::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: u(2);
+      border-radius: u(2);
+      background: currentColor;
+      transform: scaleX(0);
+      transform-origin: right;
+      transition: transform 0.45s var(--ease);
+    }
+    @media (hover: hover) {
+      &:hover::after { transform: scaleX(1); transform-origin: left; }
+    }
+  }
+  @include mobile { display: none; }
+}
+.headerBtn {
+  @include btn-ghost;
+  @include mobile { height: u(40); padding-inline: u(16); font-size: u(13); }
+}
+
+// ---------- 01 · первый экран ----------
+.hero {
+  position: relative;
+  min-height: 100svh;
+  @include container;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-block: u(120) u(140);
+  @include mobile {
+    justify-content: flex-end;
+    padding-block: 46svh u(32);
+  }
+}
+.heroText {
+  width: u(680);
+  @include mobile { width: 100%; }
+}
+.kicker {
+  @include type-label;
+  display: inline-flex;
+  align-items: center;
+  gap: u(10);
+  margin-bottom: u(28);
+  &::before {
+    content: "";
+    width: u(28);
+    height: u(2);
+    background: currentColor;
+  }
+  @include mobile { margin-bottom: u(16); }
+}
+.lead {
+  margin-top: u(28);
+  max-width: u(460);
+  @include mobile { margin-top: u(16); }
+}
+.heroActions {
+  margin-top: u(40);
+  @include mobile { margin-top: u(24); }
+}
+.pills {
+  position: absolute;
+  left: 0;
+  bottom: u(48);
+  display: flex;
+  gap: u(8);
+  @include mobile {
+    position: static;
+    margin-top: u(20);
+  }
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: u(8);
+  height: u(40);
+  padding-inline: u(14) u(18);
+  border-radius: u(100);
+  border: u(1.5) solid var(--line);
+  font-weight: 600;
+  font-size: u(14);
+  transition: background-color 0.35s, border-color 0.35s, color 0.35s;
+  i {
+    width: u(12);
+    height: u(12);
+    border-radius: 50%;
+    background: var(--c);
+    box-shadow: 0 0 0 u(3) rgba(255, 255, 255, 0.6);
+  }
+  @media (hover: hover) {
+    &:hover { border-color: var(--ink); }
+  }
+  &[aria-pressed="true"] {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--cream);
+  }
+  &:focus-visible { outline: u(2) solid var(--ink); outline-offset: u(3); }
+  @include mobile { height: u(36); font-size: u(13); padding-inline: u(10) u(14); }
+}
+.scrollHint {
+  position: absolute;
+  right: 0;
+  bottom: u(56);
+  @include type-label;
+  color: var(--muted);
+  &::after {
+    content: "";
+    display: block;
+    width: u(2);
+    height: u(36);
+    margin: u(12) auto 0;
+    background: currentColor;
+    animation: hint 2.2s var(--ease) infinite;
+    transform-origin: top;
+  }
+  @include mobile { display: none; }
+}
+@keyframes hint {
+  0% { transform: scaleY(0); }
+  50% { transform: scaleY(1); transform-origin: top; }
+  51% { transform-origin: bottom; }
+  100% { transform: scaleY(0); transform-origin: bottom; }
+}
+
+// ---------- 02 · открываем ----------
+.open {
+  height: 260svh;
+}
+.openText {
+  width: u(560);
+  .h2 { margin-top: u(20); }
+}
+.facts {
+  margin-top: u(48);
+  display: grid;
+  gap: u(20);
+  li {
+    display: grid;
+    grid-template-columns: u(150) minmax(0, 1fr);
+    align-items: baseline;
+    gap: u(20);
+    padding-top: u(20);
+    border-top: u(1.5) solid var(--line);
+    opacity: 0.18;
+    transform: translateX(u(-16));
+    transition: opacity 0.6s var(--ease), transform 0.8s var(--ease);
+    &[data-on] { opacity: 1; transform: none; }
+  }
+  b {
+    @include display;
+    font-size: u(48);
+    letter-spacing: u(-1.6);
+    color: var(--accent);
+  }
+  span {
+    @include type-body;
+    color: var(--muted);
+  }
+}
+
+// ---------- 03 · вкусы ----------
+.flavors {
+  height: 330svh;
+}
+.flvText {
+  position: relative;
+  width: u(520);
+  margin-left: auto;
+}
+.counter {
+  @include display;
+  font-size: u(16);
+  color: var(--muted);
+  margin-bottom: u(36);
+  span { color: var(--ink); }
+}
+.flvSwap {
+  animation: swap 0.8s var(--ease) both;
+  .h2 { margin-top: u(18); }
+  .body { margin-top: u(24); max-width: u(460); }
+}
+@keyframes swap {
+  from { opacity: 0; transform: translateY(u(24)); filter: blur(6px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+.specs {
+  margin-top: u(36);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: u(16);
+  div {
+    padding-top: u(14);
+    border-top: u(1.5) solid var(--line);
+  }
+  dt {
+    @include type-label;
+    font-size: u(11);
+    color: var(--muted);
+  }
+  dd {
+    margin-top: u(8);
+    font-weight: 700;
+    font-size: u(15);
+    line-height: 1.35;
+  }
+}
+.flvBar {
+  margin-top: u(44);
+  height: u(3);
+  border-radius: u(3);
+  background: var(--line);
+  overflow: hidden;
+  i {
+    display: block;
+    height: 100%;
+    background: var(--ink);
+    transform-origin: left;
+    transform: scaleX(var(--flv, 0));
+  }
+}
+
+// ---------- 04 · состав ----------
+.inside {
+  @include container;
+  padding-block: u(180) u(120);
+}
+.insideHead {
+  .h2 { margin-top: u(20); max-width: u(760); }
+}
+.insideGrid {
+  margin-top: u(72);
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: u(80);
+  align-items: start;
+}
+.list {
+  li {
+    display: flex;
+    align-items: baseline;
+    gap: u(24);
+    padding-block: u(22);
+    border-bottom: u(1.5) solid var(--line);
+    @include display;
+    font-size: u(34);
+    letter-spacing: u(-1);
+    span {
+      font-family: var(--font-sans);
+      font-weight: 700;
+      font-size: u(13);
+      letter-spacing: 0.1em;
+      color: var(--accent);
+    }
+  }
+}
+.note {
+  @include type-lead;
+  padding: u(28) u(32);
+  border-radius: u(28);
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(12px);
+}
+.stats {
+  margin-top: u(24);
+  display: grid;
+  gap: u(12);
+  li {
+    display: grid;
+    grid-template-columns: u(170) minmax(0, 1fr);
+    align-items: center;
+    gap: u(20);
+    padding: u(20) u(24);
+    border-radius: u(24);
+    border: u(1.5) solid var(--line);
+  }
+  b {
+    @include display;
+    font-size: u(44);
+    letter-spacing: u(-1.6);
+    small {
+      font-size: u(16);
+      letter-spacing: 0;
+      margin-left: u(4);
+      color: var(--accent);
+    }
+  }
+  span { @include type-body; color: var(--muted); }
+}
+
+// ---------- 05 · как есть ----------
+.ritual {
+  @include container;
+  padding-block: u(60) u(200);
+}
+.ritualHead .h2 { margin-top: u(20); }
+.steps {
+  margin-top: u(64);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: u(24);
+  align-items: start;
+  li {
+    position: relative;
+    padding: u(36) u(32) u(40);
+    border-radius: u(32);
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(14px);
+    transition: transform 0.5s var(--ease), background-color 0.4s;
+    // лесенка: карточки спускаются, как ложка в стаканчик
+    &:nth-child(2) { margin-top: u(80); }
+    &:nth-child(3) { margin-top: u(160); background: var(--ink); color: var(--cream); .body { color: color-mix(in srgb, var(--cream) 75%, transparent); } .stepN { color: var(--bg2); } }
+    @media (hover: hover) {
+      &:hover { transform: translateY(u(-6)) rotate(-0.6deg); }
+    }
+  }
+  .h3 { margin-top: u(56); }
+  .body { margin-top: u(14); }
+}
+.stepN {
+  @include display;
+  font-size: u(64);
+  letter-spacing: u(-2);
+  color: var(--accent);
+  line-height: 1;
+}
+
+// ---------- 06 · набор ----------
+.buy {
+  @include container;
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  // снизу подвал: смещаем текст ниже, чтобы в конце страницы он не уходил под шапку
+  padding-block: u(200) u(60);
+}
+.buyText {
+  width: u(560);
+  .h2 { margin-top: u(20); }
+  .body { margin-top: u(24); max-width: u(460); }
+}
+.price {
+  margin-top: u(36);
+  display: flex;
+  align-items: baseline;
+  gap: u(16);
+  b {
+    @include display;
+    font-size: u(56);
+    letter-spacing: u(-2);
+  }
+  s {
+    font-weight: 600;
+    font-size: u(20);
+    color: var(--muted);
+  }
+}
+.buyActions {
+  margin-top: u(28);
+}
+.cities {
+  margin-top: u(40);
+  display: flex;
+  flex-wrap: wrap;
+  gap: u(8);
+  li {
+    padding: u(9) u(14);
+    border-radius: u(100);
+    border: u(1.5) solid var(--line);
+    font-weight: 600;
+    font-size: u(13);
+  }
+}
+
+// ---------- подвал ----------
+.footer {
+  @include container;
+  display: flex;
+  align-items: center;
+  gap: u(48);
+  padding-block: u(40) u(48);
+  border-top: u(1.5) solid var(--line);
+  nav {
+    display: flex;
+    gap: u(28);
+    font-weight: 600;
+    font-size: u(14);
+  }
+  p {
+    margin-left: auto;
+    font-size: u(13);
+    color: var(--muted);
+  }
+}
+
+// ================= МВ =================
+@include mobile {
+  .open { height: 240svh; }
+  .flavors { height: 320svh; }
+  .sticky {
+    align-items: flex-end;
+    padding-bottom: u(28);
+  }
+  .openText,
+  .flvText {
+    width: 100%;
+  }
+  .openText .h2 { font-size: u(26); margin-top: u(12); }
+  .facts {
+    margin-top: u(20);
+    gap: u(10);
+    li {
+      grid-template-columns: u(84) minmax(0, 1fr);
+      gap: u(12);
+      padding-top: u(10);
+    }
+    b { font-size: u(28); letter-spacing: u(-1); }
+    span { font-size: u(13); line-height: 1.45; }
+  }
+  .counter { margin-bottom: u(12); font-size: u(13); }
+  .flvSwap {
+    .h2 { margin-top: u(10); }
+    .body { margin-top: u(12); font-size: u(13.5); }
+  }
+  .specs {
+    margin-top: u(18);
+    gap: u(10);
+    dd { font-size: u(13); }
+  }
+  .flvBar { margin-top: u(20); }
+
+  .inside { padding-block: u(110) u(60); }
+  .insideGrid {
+    margin-top: u(36);
+    grid-template-columns: minmax(0, 1fr);
+    gap: u(32);
+  }
+  .list li {
+    font-size: u(20);
+    gap: u(14);
+    padding-block: u(16);
+  }
+  .note { padding: u(20) u(22); border-radius: u(22); }
+  .stats li {
+    grid-template-columns: u(110) minmax(0, 1fr);
+    padding: u(16) u(18);
+  }
+  .stats b { font-size: u(30); }
+
+  .ritual { padding-block: u(40) u(100); }
+  .steps {
+    margin-top: u(32);
+    grid-template-columns: minmax(0, 1fr);
+    gap: u(12);
+    li {
+      padding: u(24) u(22) u(28);
+      border-radius: u(24);
+      &:nth-child(2),
+      &:nth-child(3) { margin-top: 0; }
+    }
+    .h3 { margin-top: u(24); }
+  }
+  .stepN { font-size: u(44); }
+
+  .buy {
+    align-items: flex-start;
+    padding-block: 44svh u(64);
+  }
+  .buyText { width: 100%; }
+  .price b { font-size: u(40); }
+
+  .footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: u(20);
+    p { margin-left: 0; }
+  }
+}
