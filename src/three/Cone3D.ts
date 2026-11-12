@@ -222,7 +222,18 @@ export function createCones(canvas: HTMLCanvasElement, onReady?: () => void) {
     c.root.rotation.z = THREE.MathUtils.degToRad(-p.r);
   };
 
-  const P = mobile ? POSES.mob : POSES.desk;
+  const P = { ...(mobile ? POSES.mob : POSES.desk) };
+  // МВ: рожок первого экрана встаёт в место, оставленное в вёрстке между заголовком и кнопкой
+  const fitSpot = () => {
+    const el = mobile ? document.querySelector<HTMLElement>("[data-cone-spot]") : null;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const top = r.top + window.scrollY;
+    const vh = window.innerHeight;
+    P.hero = { ...POSES.mob.hero, y: ((top + r.height / 2) / vh) * 100, h: (r.height / vh) * 100 };
+  };
+  fitSpot();
+  window.addEventListener("resize", fitSpot);
   let target = main.f,
     swap = 1,
     t = 0,
@@ -284,6 +295,7 @@ export function createCones(canvas: HTMLCanvasElement, onReady?: () => void) {
     cancelAnimationFrame(raf);
     window.removeEventListener("pointermove", onMove);
     window.removeEventListener("resize", resize);
+    window.removeEventListener("resize", fitSpot);
     renderer.dispose();
   };
 }

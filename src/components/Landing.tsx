@@ -14,6 +14,16 @@ if (typeof window !== "undefined") gsap.registerPlugin(ScrollTrigger);
 
 const clamp = (v: number, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 
+// натюрморт в блоке состава: x, y — центр в % блока, w — ширина в % блока
+const STILL = [
+  { src: "straw-whole", x: 38, y: 40, w: 46, r: -12 },
+  { src: "bb-whole", x: 72, y: 30, w: 30, r: 14 },
+  { src: "rasp-whole", x: 70, y: 66, w: 32, r: -18 },
+  { src: "straw-half", x: 30, y: 76, w: 34, r: 22 },
+  { src: "bb-half", x: 16, y: 22, w: 18, r: -30 },
+  { src: "rasp-half", x: 90, y: 86, w: 16, r: 26 },
+];
+
 
 function Arrow() {
   return (
@@ -187,6 +197,26 @@ export default function Landing() {
                 <span key={i}>{l}</span>
               ))}
             </h1>
+            {/* МВ: место под рожок между заголовком и кнопкой — сцена берёт отсюда позу рожка */}
+            <div className={s.coneSpot} data-cone-spot aria-hidden />
+            {/* выбор вкуса ягодкой: на ДВ — колонка справа от рожка, на МВ — строка под рожком */}
+            <div className={s.rail} role="group" aria-label="Вкус">
+              {flavors.map((fl, i) => (
+                <button
+                  key={fl.id}
+                  type="button"
+                  className={s.railItem}
+                  aria-pressed={i === flavor}
+                  aria-label={fl.name}
+                  title={fl.name}
+                  onClick={() => choose(i)}
+                  style={{ ["--c" as string]: fl.accent }}
+                >
+                  { }
+                  <img src={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/${fl.fruits[0].src}`} alt="" />
+                </button>
+              ))}
+            </div>
             <p className={s.lead}>{hero.lead}</p>
             <div className={s.heroActions}>
               <a href="#flavors" className={s.btn}>
@@ -194,23 +224,6 @@ export default function Landing() {
                 <Arrow />
               </a>
             </div>
-          </div>
-          {/* переключатель вкусов: на ДВ — вертикальная колонка справа от рожка, на МВ — строка под ним */}
-          <div className={s.rail} role="group" aria-label="Вкус">
-            <span className={s.railLabel}>Вкус</span>
-            {flavors.map((fl, i) => (
-              <button
-                key={fl.id}
-                type="button"
-                className={s.railItem}
-                aria-pressed={i === flavor}
-                onClick={() => choose(i)}
-                style={{ ["--c" as string]: fl.accent }}
-              >
-                <span>{fl.name}</span>
-                <i />
-              </button>
-            ))}
           </div>
           <span className={s.scrollHint}>Листайте</span>
         </section>
@@ -288,10 +301,19 @@ export default function Landing() {
                 </li>
               ))}
             </ol>
-            <div>
-              <p className={s.note} data-reveal>
-                {inside.note}
-              </p>
+            {/* натюрморт из ягод, которые идут в мороженое */}
+            <div className={s.still} aria-hidden data-reveal style={{ ["--d" as string]: 2 }}>
+              <div className={s.stillDisc} />
+              {STILL.map((b, i) => (
+                 
+                <img
+                  key={i}
+                  src={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/fruit/${b.src}.webp`}
+                  alt=""
+                  loading="lazy"
+                  style={{ ["--x" as string]: b.x, ["--y" as string]: b.y, ["--w" as string]: b.w, ["--r" as string]: `${b.r}deg`, ["--i" as string]: i } as React.CSSProperties}
+                />
+              ))}
             </div>
           </div>
         </section>

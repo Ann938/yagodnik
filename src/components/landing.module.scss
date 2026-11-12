@@ -195,8 +195,17 @@
   justify-content: center;
   padding-block: u(120) u(140);
   @include mobile {
-    justify-content: flex-end;
-    padding-block: 46svh u(32);
+    // МВ: заголовок → рожок → выбор вкуса → текст и кнопка
+    justify-content: flex-start;
+    padding-block: u(92) u(28);
+  }
+}
+.coneSpot {
+  display: none;
+  @include mobile {
+    display: block;
+    height: 40svh;
+    min-height: u(260);
   }
 }
 .heroText {
@@ -228,90 +237,55 @@
   align-items: center;
   flex-wrap: wrap;
   gap: u(24);
-  @include mobile { margin-top: u(22); gap: u(14); }
+  @include mobile { margin-top: u(20); gap: u(14); }
 }
-// переключатель вкусов: вертикальная колонка у правого края, как шкала — активный вкус «выдвигается»
+// выбор вкуса ягодкой: круглые кнопки с фото ягоды; выбранная — с кольцом цвета вкуса, ничего не сдвигается
 .rail {
   position: absolute;
   right: 0;
   top: 50%;
   translate: 0 -50%;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: u(14);
+  display: grid;
+  gap: u(16);
   @include mobile {
-    position: absolute;
-    top: 47svh;
-    right: 50%;
-    translate: 50% 0;
-    flex-direction: row;
-    gap: u(6);
+    position: static;
+    translate: none;
+    display: flex;
+    justify-content: center;
+    gap: u(14);
+    margin-top: u(8);
   }
-}
-.railLabel {
-  @include type-label;
-  color: var(--muted);
-  margin-bottom: u(6);
-  @include mobile { display: none; }
 }
 .railItem {
-  display: inline-flex;
-  align-items: center;
-  gap: u(12);
-  padding-block: u(4);
-  font-weight: 600;
-  font-size: u(15);
-  color: var(--muted);
-  transition: color 0.35s;
-  i {
-    position: relative;
-    width: u(14);
-    height: u(14);
-    border-radius: 50%;
-    background: var(--c);
-    box-shadow: 0 0 0 u(3) rgba(255, 255, 255, 0.7);
-    transition: transform 0.45s var(--ease);
-    // черта-указатель у активного вкуса
-    &::after {
-      content: "";
-      position: absolute;
-      right: calc(100% + #{u(8)});
-      top: 50%;
-      width: 0;
-      height: u(2);
-      background: var(--ink);
-      transition: width 0.45s var(--ease);
-    }
+  position: relative;
+  width: u(64);
+  height: u(64);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, #fff 60%, var(--bg));
+  box-shadow: 0 u(8) u(18) color-mix(in srgb, var(--ink) 12%, transparent), inset 0 0 0 u(2) transparent;
+  transition: box-shadow 0.35s var(--ease), background-color 0.35s;
+  img {
+    width: 78%;
+    height: 78%;
+    object-fit: contain;
+    filter: saturate(0.85);
+    opacity: 0.8;
+    transition: opacity 0.35s, filter 0.35s, transform 0.45s var(--ease);
   }
-  span { transition: transform 0.45s var(--ease); }
   @media (hover: hover) {
-    &:hover { color: var(--ink); }
+    &:hover img { opacity: 1; transform: rotate(-8deg); }
   }
   &[aria-pressed="true"] {
-    color: var(--ink);
-    i { transform: scale(1.35); }
-    span { transform: translateX(u(-22)); }
-    i::after { width: u(16); }
+    background: #fff;
+    box-shadow: 0 u(10) u(22) color-mix(in srgb, var(--c) 30%, transparent), inset 0 0 0 u(2.5) var(--c);
+    img { opacity: 1; filter: none; }
   }
-  &:focus-visible { outline: u(2) solid var(--ink); outline-offset: u(4); border-radius: u(6); }
+  &:focus-visible { outline: u(2) solid var(--ink); outline-offset: u(4); }
   @include mobile {
-    gap: u(6);
-    padding: u(7) u(12);
-    border-radius: u(100);
-    border: u(1.5) solid var(--line);
-    background: color-mix(in srgb, var(--bg) 70%, transparent);
-    backdrop-filter: blur(8px);
-    font-size: u(13);
-    flex-direction: row-reverse;
-    i { width: u(10); height: u(10); &::after { display: none; } }
-    &[aria-pressed="true"] {
-      background: var(--ink);
-      border-color: var(--ink);
-      color: var(--cream);
-      span { transform: none; }
-      i { transform: none; }
-    }
+    width: u(56);
+    height: u(56);
   }
 }
 .scrollHint {
@@ -476,12 +450,35 @@
     }
   }
 }
-.note {
-  @include type-lead;
-  padding: u(28) u(32);
-  border-radius: u(28);
-  background: rgba(255, 255, 255, 0.45);
-  backdrop-filter: blur(12px);
+.still {
+  position: relative;
+  aspect-ratio: 1 / 1.05;
+  img {
+    position: absolute;
+    left: calc(var(--x) * 1%);
+    top: calc(var(--y) * 1%);
+    width: calc(var(--w) * 1%);
+    translate: -50% -50%;
+    rotate: var(--r);
+    filter: drop-shadow(0 u(18) u(22) rgba(60, 10, 25, 0.25));
+    animation: stillFloat 6s ease-in-out infinite alternate;
+    animation-delay: calc(var(--i) * -1s);
+  }
+}
+// мягкий круг-«тарелка» в цвете вкуса
+.stillDisc {
+  position: absolute;
+  inset: 8% 6% 6% 8%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, #fff 55%, var(--bg2)), var(--bg2) 60%, color-mix(in srgb, var(--accent) 22%, var(--bg2)));
+  transition: background 0.6s var(--ease);
+}
+@keyframes stillFloat {
+  from { transform: translateY(0) rotate(-3deg); }
+  to { transform: translateY(u(-12)) rotate(3deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .still img { animation: none; }
 }
 .stats {
   margin-top: u(24);
@@ -667,7 +664,7 @@
     gap: u(14);
     padding-block: u(16);
   }
-  .note { padding: u(20) u(22); border-radius: u(22); }
+  .still { max-width: u(340); margin-inline: auto; width: 100%; }
   .stats li {
     grid-template-columns: u(110) minmax(0, 1fr);
     padding: u(16) u(18);

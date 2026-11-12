@@ -5,9 +5,27 @@ import { find } from "@/content";
 import { cities } from "./cityMaps";
 import s from "./find.module.scss";
 
-const BASE = process.env.NEXT_PUBLIC_BASE_PATH || "";
-// метки киосков — ягоды из мороженого по очереди
-const PINS = ["straw-whole", "bb-whole", "rasp-whole"];
+// знак «Ягодника» для меток на карте (тот же, что в шапке: ягода из зёрнышек и два листика), 32×32
+const DRUPES = [[12, 13.2], [16, 12.6], [20, 13.2], [10, 17.2], [14, 16.8], [18, 16.8], [22, 17.2], [12, 21], [16, 20.8], [20, 21], [14, 24.6], [18, 24.6], [16, 28]];
+function Mark() {
+  return (
+    <g>
+      <g fill="var(--accent)">
+        {DRUPES.map(([x, y], i) => (
+          <circle key={i} cx={x} cy={y} r="2.45" />
+        ))}
+      </g>
+      <g fill="#fff" opacity=".55">
+        {DRUPES.map(([x, y], i) => (
+          <circle key={i} cx={x - 0.8} cy={y - 0.8} r="0.7" />
+        ))}
+      </g>
+      <path d="M16 10.2C14.8 6.6 11.8 5 8.4 5.6c.6 3.6 3.6 5.2 7.6 4.6z" fill="#4f8f3a" />
+      <path d="M16 10.2c1.2-3.8 4.3-5.4 7.8-4.7-.7 3.7-3.8 5.4-7.8 4.7z" fill="#6fae4f" />
+      <path d="M16 10.4V7" stroke="#3f7a2e" strokeWidth="1.2" strokeLinecap="round" />
+    </g>
+  );
+}
 
 function Arrow() {
   return (
@@ -17,8 +35,8 @@ function Arrow() {
   );
 }
 
-// Блок «Где найти»: на фоне — стилизованная карта выбранного города, киоски отмечены ягодами.
-// Смена города: карта мягко проявляется с лёгким приближением, ягоды падают по очереди.
+// Блок «Где найти»: на фоне — стилизованная карта выбранного города, киоски отмечены знаком «Ягодника».
+// Смена города: карта мягко проявляется с лёгким приближением, метки падают по очереди.
 export default function Find() {
   const [ci, setCi] = useState(0);
   const city = cities[ci];
@@ -56,7 +74,11 @@ export default function Find() {
               <g key={k.name} className={s.pin} transform={`translate(${k.x} ${k.y})`} style={{ ["--i" as string]: i }}>
                 <ellipse className={s.pulse} rx="26" ry="9" />
                 <g className={s.drop}>
-                  <image href={`${BASE}/fruit/${PINS[i % 3]}.webp`} x="-30" y="-58" width="60" height="60" preserveAspectRatio="xMidYMid meet" />
+                  {/* метка: белый кружок с хвостиком, внутри знак бренда */}
+                  <path className={s.badge} d="M0 0 L-9 -16 A 27 27 0 1 1 9 -16 Z" />
+                  <g transform="translate(-21 -62) scale(1.32)">
+                    <Mark />
+                  </g>
                   <text className={s.label} y="28" textAnchor="middle">
                     {k.name}
                   </text>
@@ -95,7 +117,6 @@ export default function Find() {
         <div className={s.bottom} data-reveal style={{ ["--d" as string]: 4 }}>
           <div className={s.price}>
             <b>{find.price}</b>
-            <span>{find.priceNote}</span>
           </div>
           <a href="#top" className={s.btn}>
             {find.cta}

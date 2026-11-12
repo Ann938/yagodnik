@@ -14,10 +14,10 @@ type Slot = { x: number; y: number; w: number; r: number; d: number; mx: number;
 const SLOTS: Slot[] = [
   { x: 61, y: 15, w: 7, r: -18, d: 0.7, mx: 12, my: 9, mw: 22 },
   { x: 90, y: 24, w: 11, r: 14, d: 1.0, mx: 86, my: 7, mw: 26 },
-  { x: 92, y: 66, w: 12, r: -12, d: 1.1, mx: 92, my: 44, mw: 24 },
+  { x: 86, y: 74, w: 10, r: -12, d: 1.1, mx: 92, my: 44, mw: 24 },
   { x: 62, y: 86, w: 9, r: 28, d: 0.8, mx: 8, my: 44, mw: 20 },
   { x: 57, y: 44, w: 5, r: 40, d: 0.45, mx: 70, my: 2, mw: 14 },
-  { x: 99, y: 97, w: 16, r: -24, d: 1.7, mx: -6, my: 30, mw: 34, front: true },
+  { x: 101, y: 106, w: 16, r: -24, d: 1.7, mx: -6, my: 30, mw: 34, front: true },
   { x: 80, y: -7, w: 17, r: 10, d: 1.8, mx: 104, my: 26, mw: 36, front: true },
 ];
 
