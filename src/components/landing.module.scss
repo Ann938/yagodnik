@@ -210,21 +210,25 @@
 }
 .heroText {
   width: u(680);
-  @include mobile { width: 100%; }
+  // МВ: всё по центру; подзаголовок сразу под заголовком, ниже — рожок, ягодки и кнопка
+  @include mobile {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    > .kicker { order: 0; }
+    > .h1 { order: 1; }
+    > .lead { order: 2; margin-top: u(12); }
+    > .coneSpot { order: 3; align-self: stretch; }
+    > .rail { order: 4; }
+    > .heroActions { order: 5; align-self: stretch; }
+  }
 }
 .kicker {
   @include type-label;
-  display: inline-flex;
-  align-items: center;
-  gap: u(10);
   margin-bottom: u(28);
-  &::before {
-    content: "";
-    width: u(28);
-    height: u(2);
-    background: currentColor;
-  }
-  @include mobile { margin-bottom: u(16); }
+  @include mobile { margin-bottom: u(14); }
 }
 .lead {
   margin-top: u(28);
