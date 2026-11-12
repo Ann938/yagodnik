@@ -611,6 +611,17 @@
     font-size: u(14);
   }
 }
+.credit {
+  margin-left: auto;
+  font-size: u(12);
+  color: var(--muted);
+  opacity: 0.75;
+  transition: opacity 0.3s;
+  @media (hover: hover) {
+    &:hover { opacity: 1; text-decoration: underline; }
+  }
+  @include mobile { margin-left: 0; }
+}
 .footNote {
   margin-left: auto;
   max-width: u(520);

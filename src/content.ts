@@ -135,6 +135,8 @@ export const find = {
 };
 
 export const footer = {
+  // лицензия фото ягод (CC BY-SA 4.0) требует указать автора
+  credit: { text: "Фото ягод: Ivar Leidus, CC BY-SA 4.0", href: "https://commons.wikimedia.org/wiki/User:Iifar" },
   links: [
     { href: "#flavors", label: "Вкусы" },
     { href: "#inside", label: "Из чего" },

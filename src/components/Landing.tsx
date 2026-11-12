@@ -352,6 +352,9 @@ export default function Landing() {
             </a>
           ))}
         </nav>
+        <a className={s.credit} href={footer.credit.href} target="_blank" rel="noopener noreferrer">
+          {footer.credit.text}
+        </a>
       </footer>
     </div>
   );
