@@ -108,11 +108,11 @@
   left: 50%;
   transform: translateX(-50%);
   width: u($content);
-  height: u(96);
+  height: u(72);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  // подложка на всю ширину экрана: цвет вкуса с размытием
+  // подложка на всю ширину экрана: сплошной цвет вкуса
   &::before {
     content: "";
     position: absolute;
@@ -122,14 +122,10 @@
     left: 50%;
     width: 100vw;
     transform: translateX(-50%);
-    background: color-mix(in srgb, var(--bg) 78%, transparent);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+    background: var(--bg);
     border-bottom: u(1) solid var(--line);
-    opacity: 0;
-    transition: opacity 0.4s var(--ease);
+    transition: background-color 0.6s var(--ease);
   }
-  &[data-scrolled]::before { opacity: 1; }
   transition: translate 0.45s var(--ease);
   &[data-hidden] { translate: 0 -110%; }
   // открытое меню/фокус с клавиатуры — шапка не прячется
@@ -185,7 +181,7 @@
   @include mobile { display: none; }
 }
 .headerBtn {
-  @include btn-ghost;
+  @include btn-ghost(44);
   @include mobile { height: u(40); padding-inline: u(16); font-size: max(14px, #{u(14)}); }
 }
 

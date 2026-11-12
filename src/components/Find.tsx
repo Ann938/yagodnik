@@ -5,7 +5,7 @@ import type { Map as MLMap, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { find } from "@/content";
 import { cities, type CityMap } from "./cityMaps";
-import { mapStyle, recolor, type Palette } from "./mapStyle";
+import { mapStyle } from "./mapStyle";
 import s from "./find.module.scss";
 
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH || "";
@@ -30,12 +30,6 @@ function Arrow() {
 // внешние карты: метка и строка списка → Яндекс Карты с этим местом; кнопка и клик по карте → 2ГИС по городу
 const yandex = (place: string, city: string) => `https://yandex.ru/maps/?text=${encodeURIComponent(`${place}, ${city}`)}`;
 const gis = (slug: string) => `https://2gis.ru/${slug}/search/${encodeURIComponent("мороженое")}`;
-
-const palette = (): Palette => {
-  const cs = getComputedStyle(document.documentElement);
-  const g = (k: string, d: string) => cs.getPropertyValue(k).trim() || d;
-  return { bg: g("--bg", "#fbe3dc"), bg2: g("--bg2", "#f6c3b9"), ink: g("--ink", "#4a0d18"), accent: g("--accent", "#d8283f") };
-};
 
 // Блок «Киоски»: заголовок и переключатель городов сверху, ниже — настоящая карта (OpenStreetMap) в рамке, белая панель со списком.
 // Карта грузится, только когда блок близко к экрану; страницу колесо не перехватывает (масштаб — кнопки или два пальца).
@@ -92,7 +86,6 @@ export default function Find() {
     const el = box.current;
     if (!el) return;
     let map: MLMap | null = null;
-    let mo: MutationObserver | null = null;
     let dead = false;
     const io = new IntersectionObserver(
       async ([e]) => {
@@ -104,14 +97,13 @@ export default function Find() {
         const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         map = new ml.Map({
           container: el,
-          style: mapStyle(palette()),
+          style: mapStyle(),
           center: [cityRef.current.kiosks[0].lng, cityRef.current.kiosks[0].lat],
           zoom: 12,
           attributionControl: false,
-          // без подсказок поверх карты: колесо и один палец листают страницу, карту двигают мышью,
+          // без подсказок поверх карты: колесо листает страницу; карту двигают мышью или пальцем,
           // приближают кнопками «+ / −» или двумя пальцами
           scrollZoom: false,
-          dragPan: !window.matchMedia("(pointer: coarse)").matches,
           dragRotate: false,
           pitchWithRotate: false,
           fadeDuration: reduced ? 0 : 300,
@@ -133,9 +125,6 @@ export default function Find() {
           // атрибуция OSM — свёрнутой кнопкой «i», чтобы не закрывать метки
           el.querySelector(".maplibregl-compact-show")?.classList.remove("maplibregl-compact-show");
         });
-        // смена вкуса — карта перекрашивается в новые оттенки
-        mo = new MutationObserver(() => map?.isStyleLoaded() && recolor(map, palette()));
-        mo.observe(document.documentElement, { attributes: true, attributeFilter: ["style"] });
         setMapTick((t) => t + 1); // метки ставит следующий эффект
       },
       { rootMargin: "600px 0px" },
@@ -144,7 +133,6 @@ export default function Find() {
     return () => {
       dead = true;
       io.disconnect();
-      mo?.disconnect();
       map?.remove();
       mapRef.current = null;
     };

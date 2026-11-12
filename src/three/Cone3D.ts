@@ -211,7 +211,6 @@ export function createCones(canvas: HTMLCanvasElement, onReady?: () => void) {
   let swap = 1,
     target = current,
     t = 0,
-    spin = 0,
     raf = 0,
     last = performance.now();
 
@@ -237,26 +236,18 @@ export function createCones(canvas: HTMLCanvasElement, onReady?: () => void) {
       }
     }
 
-    // ---- поза по разделам; рожок медленно вращается, мышь добавляет поворот и наклон
+    // ---- поза по разделам
     let p = P.hero;
     p = mix(p, P.pour, ease(stage.openIn));
     p = mix(p, P.flv, ease(stage.flvIn));
     p = mix(p, P.away, ease(stage.away));
-    place({ ...p, y: p.y + (reduced ? 0 : Math.sin(t * 0.9) * 0.6) });
+    // рожок не поворачивается — только плавно ходит вправо-влево (и чуть вверх-вниз), мышь слегка сдвигает его
+    const drift = reduced ? 0 : Math.sin(t * 0.7) * 1.1 + ptr.sx * 1.6;
+    place({ ...p, x: p.x + drift, y: p.y + (reduced ? 0 : Math.sin(t * 0.9) * 0.6) });
     turn.visible = stage.away < 0.999;
     ptr.sx += (ptr.x - ptr.sx) * (1 - Math.exp(-4 * dt));
     ptr.sy += (ptr.y - ptr.sy) * (1 - Math.exp(-4 * dt));
-    // поворот «показом»: рожок плавно покачивается у одного снимка, потом быстро доворачивает к следующему.
-    // Так зритель не видит сторону под большим углом к снимкам — там фото растягивается.
-    if (!reduced) spin += dt;
-    const PER = 5.2,
-      HOLD = 0.74;
-    const n = Math.floor(spin / PER),
-      u = spin / PER - n;
-    const step = u < HOLD ? 0 : ease((u - HOLD) / (1 - HOLD));
-    const sway = u < HOLD ? Math.sin((u / HOLD) * Math.PI * 2) * 0.17 : 0;
-    turn.rotation.y = (n + step) * (Math.PI / 2) + sway + ptr.sx * 0.35;
-    turn.rotation.x = ptr.sy * 0.25;
+    turn.rotation.set(0, 0, 0); // всегда лицом к зрителю — снимок 0
     // какой снимок смотрит на зрителя: зритель в координатах рожка — под углом −rotation.y
     const cam = [0, 1, 2, 3].map((k) => Math.pow(Math.max(0, Math.cos(-turn.rotation.y - (k * Math.PI) / 2)), 24));
     const cs = cam[0] + cam[1] + cam[2] + cam[3];
