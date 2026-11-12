@@ -1,0 +1,66 @@
+@use "styles/core" as *;
+
+.layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  // в блоках с длинным текстом ягоды отходят на второй план
+  opacity: calc(1 - var(--away, 0) * 0.7);
+  transition: opacity 0.4s;
+  &[data-layer="back"] { z-index: 2; }
+  &[data-layer="front"] { z-index: 4; }
+}
+
+.fruit {
+  --pw: calc(var(--w) * 1vw);
+  position: absolute;
+  left: calc(var(--x) * 1%);
+  top: calc(var(--y) * 1%);
+  width: var(--pw);
+  height: calc(var(--pw) * var(--ar));
+  margin: calc(var(--pw) * var(--ar) / -2) 0 0 calc(var(--pw) / -2);
+  // параллакс: курсор и скролл (покачивание, чтобы ягоды не улетали насовсем)
+  translate: calc(var(--px, 0) * var(--d) * -40px) calc(var(--py, 0) * var(--d) * -30px + sin(var(--sc, 0) * 18rad + var(--i) * 1rad) * var(--d) * 46px);
+  img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    // выпадение и смена набора: старые улетают вниз с поворотом, новые прилетают сверху
+    opacity: 0;
+    transform: translateY(-40%) rotate(calc(var(--r) - 50deg)) scale(0.55);
+    transition:
+      opacity 0.5s var(--ease),
+      transform 0.9s var(--ease);
+    transition-delay: calc(var(--i) * 45ms);
+    filter: drop-shadow(0 calc(var(--d) * 14px) calc(var(--d) * 16px) rgba(40, 10, 10, 0.22));
+    animation: float 6s ease-in-out infinite alternate;
+    animation-delay: calc(var(--i) * -0.9s);
+  }
+  &[data-on] img {
+    opacity: 1;
+    transform: rotate(var(--r));
+  }
+  &:not([data-on]) img {
+    transform: translateY(40%) rotate(calc(var(--r) + 50deg)) scale(0.55);
+    transition-delay: 0s;
+  }
+  // ближние — крупные и размытые, как вне фокуса; дальние — чуть мягче
+  [data-layer="front"] & img { filter: blur(7px) drop-shadow(0 20px 24px rgba(40, 10, 10, 0.2)); }
+  &[data-soft] img { filter: blur(2.5px); }
+
+  @include mobile {
+    --pw: calc(var(--mw) * 1vw);
+    left: calc(var(--mx) * 1%);
+    top: calc(var(--my) * 1%);
+  }
+}
+
+@keyframes float {
+  from { translate: 0 0; rotate: -3deg; }
+  to { translate: 0 calc(-10px * var(--d)); rotate: 3deg; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fruit img { animation: none; transition: opacity 0.2s; }
+}

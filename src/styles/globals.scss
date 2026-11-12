@@ -8,10 +8,10 @@
 
   // ---- Палитра ----
   // Цвета вкуса меняет Landing при переключении (клубника → шоколад → ежевика).
-  --bg: #ffd6d3;
-  --bg2: #ffb9b3;
-  --ink: #4e0f1d; // «чёрный» в гамме вкуса, не #000
-  --accent: #e2384d;
+  --bg: #fbe3dc;
+  --bg2: #f6c3b9;
+  --ink: #4a0d18; // «чёрный» в гамме вкуса, не #000
+  --accent: #d8283f;
   --cream: #fff7f1;
   --line: color-mix(in srgb, var(--ink) 22%, transparent);
   --muted: color-mix(in srgb, var(--ink) 72%, transparent); // один серый на проект

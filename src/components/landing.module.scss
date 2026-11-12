@@ -1,15 +1,70 @@
 @use "styles/core" as *;
 
-// Слои: волна новой заливки (0) → 3D-канвас (1) → контент (2) → шапка (10)
+// Слои: фон со словом (0) → волна новой заливки (1) → дальние ягоды (2) → 3D (3) → ближние ягоды (4) → контент (5) → шапка (10)
 
 .page {
   position: relative;
 }
 
+// ---------- фон ----------
+.backdrop {
+  position: fixed;
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+// мягкий свет за рожком: справа на первом экране, слева — в блоке вкусов
+.glow {
+  position: absolute;
+  inset: -20%;
+  background:
+    radial-gradient(38% 46% at calc(72% - var(--flvIn, 0) * 44%) 50%, var(--bg2), transparent 70%),
+    radial-gradient(60% 50% at 10% 110%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 70%);
+  transition: background 0.6s;
+}
+// огромное слово вкуса: контурное, едет по горизонтали со скроллом
+.word {
+  position: absolute;
+  left: 0;
+  bottom: u(-60);
+  display: flex;
+  gap: u(80);
+  white-space: nowrap;
+  @include display;
+  font-weight: 800;
+  font-size: u(360);
+  line-height: 1;
+  letter-spacing: u(-14);
+  color: transparent;
+  -webkit-text-stroke: u(2) color-mix(in srgb, var(--ink) 9%, transparent);
+  transform: translateX(calc(var(--sc, 0) * -60%));
+  animation: wordIn 1.1s var(--ease) both;
+  span:nth-child(2) { color: color-mix(in srgb, var(--accent) 7%, transparent); -webkit-text-stroke: 0; }
+  @include mobile {
+    font-size: u(150);
+    letter-spacing: u(-6);
+    bottom: auto;
+    top: 34svh;
+  }
+}
+@keyframes wordIn {
+  from { opacity: 0; translate: 0 u(80); }
+  to { opacity: 1; translate: 0 0; }
+}
+// зерно поверх фона — убирает «пластиковую» плоскость заливки
+.grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.35;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.45 0 0 0 0 0.35 0 0 0 0 0.3 0 0 0 .18 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
 // ---------- волна смены вкуса ----------
 .wave {
   position: fixed;
-  z-index: 0;
+  z-index: 1;
   left: 0;
   right: 0;
   top: u(-140);
@@ -33,7 +88,7 @@
 
 .canvas {
   position: fixed;
-  z-index: 1;
+  z-index: 3;
   inset: 0;
   width: 100%;
   height: 100lvh;
@@ -50,7 +105,7 @@
 .main,
 .footer {
   position: relative;
-  z-index: 2;
+  z-index: 5;
 }
 
 // ---------- общие ----------
@@ -213,18 +268,15 @@
 }
 .heroActions {
   margin-top: u(40);
-  @include mobile { margin-top: u(24); }
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: u(24);
+  @include mobile { margin-top: u(22); gap: u(14); }
 }
 .pills {
-  position: absolute;
-  left: 0;
-  bottom: u(48);
   display: flex;
   gap: u(8);
-  @include mobile {
-    position: static;
-    margin-top: u(20);
-  }
 }
 .pill {
   display: inline-flex;
@@ -280,11 +332,11 @@
   100% { transform: scaleY(0); transform-origin: bottom; }
 }
 
-// ---------- 02 · открываем ----------
-.open {
+// ---------- 02 · заливаем ----------
+.pour {
   height: 260svh;
 }
-.openText {
+.pourText {
   width: u(560);
   .h2 { margin-top: u(20); }
 }
@@ -322,15 +374,20 @@
 }
 .flvText {
   position: relative;
-  width: u(520);
+  width: u(600);
   margin-left: auto;
 }
-.counter {
-  @include display;
-  font-size: u(16);
-  color: var(--muted);
+.flvTabs {
+  display: flex;
+  gap: u(20);
   margin-bottom: u(36);
-  span { color: var(--ink); }
+  @include type-label;
+  span {
+    color: var(--muted);
+    opacity: 0.55;
+    transition: opacity 0.4s, color 0.4s;
+    &[data-on] { opacity: 1; color: var(--accent); }
+  }
 }
 .flvSwap {
   animation: swap 0.8s var(--ease) both;
@@ -377,7 +434,7 @@
   }
 }
 
-// ---------- 04 · состав ----------
+// ---------- 04 · из чего ----------
 .inside {
   @include container;
   padding-block: u(180) u(120);
@@ -482,16 +539,16 @@
   line-height: 1;
 }
 
-// ---------- 06 · набор ----------
-.buy {
+// ---------- 06 · где найти ----------
+.find {
   @include container;
   min-height: 100svh;
   display: flex;
   align-items: center;
   // снизу подвал: смещаем текст ниже, чтобы в конце страницы он не уходил под шапку
-  padding-block: u(200) u(60);
+  padding-block: u(260) u(40);
 }
-.buyText {
+.findText {
   width: u(560);
   .h2 { margin-top: u(20); }
   .body { margin-top: u(24); max-width: u(460); }
@@ -506,13 +563,13 @@
     font-size: u(56);
     letter-spacing: u(-2);
   }
-  s {
+  span {
     font-weight: 600;
-    font-size: u(20);
+    font-size: u(16);
     color: var(--muted);
   }
 }
-.buyActions {
+.findActions {
   margin-top: u(28);
 }
 .cities {
@@ -543,26 +600,30 @@
     font-weight: 600;
     font-size: u(14);
   }
-  p {
-    margin-left: auto;
-    font-size: u(13);
-    color: var(--muted);
-  }
+}
+.footNote {
+  margin-left: auto;
+  max-width: u(520);
+  text-align: right;
+  font-size: u(12);
+  line-height: 1.5;
+  color: var(--muted);
+  p + p { margin-top: u(4); opacity: 0.8; }
 }
 
 // ================= МВ =================
 @include mobile {
-  .open { height: 240svh; }
+  .pour { height: 240svh; }
   .flavors { height: 320svh; }
   .sticky {
     align-items: flex-end;
     padding-bottom: u(28);
   }
-  .openText,
+  .pourText,
   .flvText {
     width: 100%;
   }
-  .openText .h2 { font-size: u(26); margin-top: u(12); }
+  .pourText .h2 { font-size: u(26); margin-top: u(12); }
   .facts {
     margin-top: u(20);
     gap: u(10);
@@ -574,7 +635,7 @@
     b { font-size: u(28); letter-spacing: u(-1); }
     span { font-size: u(13); line-height: 1.45; }
   }
-  .counter { margin-bottom: u(12); font-size: u(13); }
+  .flvTabs { margin-bottom: u(12); gap: u(12); font-size: u(10); }
   .flvSwap {
     .h2 { margin-top: u(10); }
     .body { margin-top: u(12); font-size: u(13.5); }
@@ -619,17 +680,17 @@
   }
   .stepN { font-size: u(44); }
 
-  .buy {
+  .find {
     align-items: flex-start;
     padding-block: 44svh u(64);
   }
-  .buyText { width: 100%; }
+  .findText { width: 100%; }
   .price b { font-size: u(40); }
 
   .footer {
     flex-direction: column;
     align-items: flex-start;
     gap: u(20);
-    p { margin-left: 0; }
   }
+  .footNote { margin-left: 0; text-align: left; }
 }

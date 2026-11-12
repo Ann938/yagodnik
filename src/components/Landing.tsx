@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { buy, flavors, footer, hero, inside, nav, open, ritual } from "@/content";
+import { find, flavors, footer, hero, inside, nav, pour, ritual } from "@/content";
 import { stage } from "@/three/stage";
+import Fruits from "./Fruits";
 import s from "./landing.module.scss";
 
 if (typeof window !== "undefined") gsap.registerPlugin(ScrollTrigger);
@@ -19,22 +20,21 @@ function Arrow() {
   );
 }
 
+// знак: рожок с завитком
 function Logo() {
   return (
     <span className={s.logo}>
       <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden>
         <rect width="32" height="32" rx="9" fill="var(--accent)" />
-        <path d="M7 21c3-3 5-3 9 0s6 3 9 0v4H7z" fill="var(--cream)" />
-        <g stroke="var(--cream)" strokeWidth="2.2" strokeLinecap="round">
-          <path d="M16 6v10M11.7 8.5l8.6 5M11.7 13.5l8.6-5" />
-        </g>
+        <path d="M10.5 15h11L16 27z" fill="var(--cream)" />
+        <path d="M9.5 15c0-2.6 2-3.6 3.6-3.6 0-2.6 1.6-4.4 4.2-4.4 1.6 0 2.4.9 2.4.9-.9.4-1.4 1.2-1.3 2 2.6 0 4.1 1.6 4.1 4.1z" fill="var(--cream)" />
       </svg>
       Сугроб
     </span>
   );
 }
 
-// волна новой заливки: поднимается снизу, потом под неё меняются цвета страницы
+// волна новой заливки: поднимается снизу, под ней меняются цвета страницы
 function useFlavorWave() {
   const wave = useRef<HTMLDivElement>(null);
   const token = useRef(0);
@@ -75,6 +75,7 @@ export default function Landing() {
   const canvas = useRef<HTMLCanvasElement>(null);
   const root = useRef<HTMLDivElement>(null);
   const [flavor, setFlavor] = useState(0);
+  const [word, setWord] = useState(0); // слово на фоне меняется, когда волна закрыла экран
   const [ready, setReady] = useState(false);
   const { wave, run } = useFlavorWave();
   const current = useRef(0);
@@ -86,6 +87,7 @@ export default function Landing() {
       stage.flavor = i;
       setFlavor(i);
       run(i);
+      window.setTimeout(() => setWord(current.current), 650);
     },
     [run],
   );
@@ -104,58 +106,47 @@ export default function Landing() {
     };
   }, []);
 
-  // хореография по скроллу → stage
+  // хореография по скроллу → stage и CSS-переменные
+  const [factOn, setFactOn] = useState(0);
   useEffect(() => {
+    const css = (k: string, v: number) => root.current?.style.setProperty(k, v.toFixed(4));
     const ctx = gsap.context(() => {
-      let lidRaw = 0;
-      const sync = () => (stage.lid = lidRaw * (1 - stage.flvIn));
       const st = (trigger: string, start: string, end: string, fn: (p: number) => void) =>
         ScrollTrigger.create({ trigger, start, end, onUpdate: (t) => fn(t.progress), onRefresh: (t) => fn(t.progress) });
 
-      st("#open", "top bottom", "top top", (p) => (stage.openIn = p));
-      st("#open", "top top", "bottom bottom", (p) => {
-        lidRaw = clamp((p - 0.04) / 0.32);
-        sync();
-        root.current?.style.setProperty("--open", String(p));
+      st("#pour", "top bottom", "top top", (p) => (stage.openIn = p));
+      st("#pour", "top top", "bottom bottom", (p) => {
+        stage.pour = clamp((p - 0.08) / 0.62);
+        setFactOn(Math.min(3, Math.floor(clamp((p - 0.12) / 0.7) * 3.999)));
       });
       st("#flavors", "top bottom", "top top", (p) => {
         stage.flvIn = p;
-        sync();
+        css("--flvIn", p * (1 - (stage.away || 0)));
       });
       st("#flavors", "top top", "bottom bottom", (p) => {
-        const i = Math.min(2, Math.floor(p * 3));
-        choose(i);
-        root.current?.style.setProperty("--flv", String(p));
+        choose(Math.min(2, Math.floor(p * 3)));
+        css("--flv", p);
       });
-      st("#inside", "top bottom", "top 15%", (p) => (stage.away = p));
-      st("#buy", "top bottom", "top 10%", (p) => (stage.buyIn = p));
+      st("#inside", "top bottom", "top 15%", (p) => {
+        stage.away = p;
+        css("--away", p);
+      });
+      st("#find", "top bottom", "top 10%", (p) => {
+        stage.buyIn = p;
+        if (p > 0) css("--away", 1 - p);
+      });
       ScrollTrigger.create({
-        trigger: "#buy",
+        trigger: "#find",
         start: "top top",
         end: "bottom top",
         onUpdate: (t) => (stage.buyPx = t.progress * (t.end - t.start)),
         onRefresh: (t) => (stage.buyPx = t.progress * (t.end - t.start)),
       });
-      ScrollTrigger.create({
-        start: 0,
-        end: "max",
-        onUpdate: (t) => (stage.scroll = t.progress),
-      });
+      // огромное слово на фоне едет по горизонтали со скроллом
+      ScrollTrigger.create({ start: 0, end: "max", onUpdate: (t) => css("--sc", t.progress) });
     }, root);
     return () => ctx.revert();
   }, [choose]);
-
-  // в блоке «Открываем» факты появляются по одному с прогрессом
-  const [factOn, setFactOn] = useState(0);
-  useEffect(() => {
-    const t = ScrollTrigger.create({
-      trigger: "#open",
-      start: "top top",
-      end: "bottom bottom",
-      onUpdate: (st) => setFactOn(Math.min(3, Math.floor(clamp((st.progress - 0.15) / 0.7) * 3.999))),
-    });
-    return () => t.kill();
-  }, []);
 
   // шапка получает подложку, когда страница уехала с первого экрана
   const [scrolled, setScrolled] = useState(false);
@@ -170,16 +161,24 @@ export default function Landing() {
 
   return (
     <div ref={root} className={s.page}>
+      {/* фон: свечение за рожком, огромное слово вкуса и зерно */}
+      <div className={s.backdrop} aria-hidden>
+        <div className={s.glow} />
+        <p className={s.word} key={flavors[word].id}>
+          <span>{flavors[word].word}</span>
+          <span>{flavors[word].word}</span>
+        </p>
+        <div className={s.grain} />
+      </div>
       <div ref={wave} className={s.wave} aria-hidden>
         <svg viewBox="0 0 1440 140" preserveAspectRatio="none">
-          <path
-            d="M0 70 C 120 20 240 20 360 70 S 600 120 720 70 S 960 20 1080 70 S 1320 120 1440 70 V140 H0 Z"
-            fill="currentColor"
-          />
+          <path d="M0 70 C 120 20 240 20 360 70 S 600 120 720 70 S 960 20 1080 70 S 1320 120 1440 70 V140 H0 Z" fill="currentColor" />
         </svg>
         <div />
       </div>
+      <Fruits flavor={flavor} layer="back" />
       <canvas ref={canvas} className={s.canvas} data-ready={ready || undefined} aria-hidden />
+      <Fruits flavor={flavor} layer="front" />
 
       <header className={s.header} data-scrolled={scrolled || undefined}>
         <a href="#top" aria-label="Сугроб — наверх">
@@ -192,8 +191,8 @@ export default function Landing() {
             </a>
           ))}
         </nav>
-        <a href="#buy" className={s.headerBtn}>
-          Заказать набор
+        <a href="#find" className={s.headerBtn}>
+          Найти киоск
         </a>
       </header>
 
@@ -213,34 +212,34 @@ export default function Landing() {
                 {hero.cta}
                 <Arrow />
               </a>
+              <div className={s.pills} role="group" aria-label="Вкус">
+                {flavors.map((fl, i) => (
+                  <button
+                    key={fl.id}
+                    type="button"
+                    className={s.pill}
+                    aria-pressed={i === flavor}
+                    onClick={() => choose(i)}
+                    style={{ ["--c" as string]: fl.accent }}
+                  >
+                    <i />
+                    {fl.name}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-          <div className={s.pills} role="group" aria-label="Вкус">
-            {flavors.map((fl, i) => (
-              <button
-                key={fl.id}
-                type="button"
-                className={s.pill}
-                aria-pressed={i === flavor}
-                onClick={() => choose(i)}
-                style={{ ["--c" as string]: fl.accent }}
-              >
-                <i />
-                {fl.name}
-              </button>
-            ))}
           </div>
           <span className={s.scrollHint}>Листайте</span>
         </section>
 
-        {/* ---------- 02 · открываем ---------- */}
-        <section id="open" className={s.open}>
+        {/* ---------- 02 · заливаем ---------- */}
+        <section id="pour" className={s.pour}>
           <div className={s.sticky}>
-            <div className={s.openText}>
-              <p className={s.label}>{open.label}</p>
-              <h2 className={s.h2}>{open.title}</h2>
+            <div className={s.pourText}>
+              <p className={s.label}>{pour.label}</p>
+              <h2 className={s.h2}>{pour.title}</h2>
               <ul className={s.facts}>
-                {open.facts.map((fc, i) => (
+                {pour.facts.map((fc, i) => (
                   <li key={i} data-on={i < factOn || undefined}>
                     <b>{fc.num}</b>
                     <span>{fc.text}</span>
@@ -255,25 +254,28 @@ export default function Landing() {
         <section id="flavors" className={s.flavors}>
           <div className={s.sticky}>
             <div className={s.flvText}>
-              <p className={s.counter}>
-                <span>0{flavor + 1}</span> / 03
-              </p>
+              <div className={s.flvTabs}>
+                {flavors.map((fl, i) => (
+                  <span key={fl.id} data-on={i === flavor || undefined}>
+                    0{i + 1} · {fl.name}
+                  </span>
+                ))}
+              </div>
               <div className={s.flvSwap} key={f.id}>
-                <p className={s.label}>{f.short} пломбир</p>
-                <h2 className={s.h2}>{f.tagline}</h2>
+                <h2 className={s.h2}>{f.title}</h2>
                 <p className={s.body}>{f.text}</p>
                 <dl className={s.specs}>
                   <div>
-                    <dt>Внутри</dt>
-                    <dd>{f.inside}</dd>
+                    <dt>Сверху</dt>
+                    <dd>{f.sauce}</dd>
                   </div>
                   <div>
                     <dt>100 г</dt>
                     <dd>{f.kcal} ккал</dd>
                   </div>
                   <div>
-                    <dt>Объём</dt>
-                    <dd>450 мл</dd>
+                    <dt>Рожок</dt>
+                    <dd>120 г</dd>
                   </div>
                 </dl>
               </div>
@@ -284,7 +286,7 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* ---------- 04 · состав ---------- */}
+        {/* ---------- 04 · из чего ---------- */}
         <section id="inside" className={s.inside}>
           <div className={s.insideHead}>
             <p className={s.label} data-reveal>
@@ -303,7 +305,7 @@ export default function Landing() {
                 </li>
               ))}
             </ol>
-            <div className={s.insideSide}>
+            <div>
               <p className={s.note} data-reveal>
                 {inside.note}
               </p>
@@ -343,30 +345,30 @@ export default function Landing() {
           </ol>
         </section>
 
-        {/* ---------- 06 · набор ---------- */}
-        <section id="buy" className={s.buy}>
-          <div className={s.buyText}>
+        {/* ---------- 06 · где найти ---------- */}
+        <section id="find" className={s.find}>
+          <div className={s.findText}>
             <p className={s.label} data-reveal>
-              {buy.label}
+              {find.label}
             </p>
             <h2 className={s.h2} data-reveal style={{ ["--d" as string]: 1 }}>
-              {buy.title}
+              {find.title}
             </h2>
             <p className={s.body} data-reveal style={{ ["--d" as string]: 2 }}>
-              {buy.text}
+              {find.text}
             </p>
             <div className={s.price} data-reveal style={{ ["--d" as string]: 3 }}>
-              <b>{buy.price}</b>
-              <s>{buy.oldPrice}</s>
+              <b>{find.price}</b>
+              <span>{find.priceNote}</span>
             </div>
-            <div className={s.buyActions} data-reveal style={{ ["--d" as string]: 4 }}>
+            <div className={s.findActions} data-reveal style={{ ["--d" as string]: 4 }}>
               <a href="#top" className={s.btn}>
-                {buy.cta}
+                {find.cta}
                 <Arrow />
               </a>
             </div>
             <ul className={s.cities} data-reveal style={{ ["--d" as string]: 5 }}>
-              {buy.cities.map((c) => (
+              {find.cities.map((c) => (
                 <li key={c}>{c}</li>
               ))}
             </ul>
@@ -383,7 +385,10 @@ export default function Landing() {
             </a>
           ))}
         </nav>
-        <p>{footer.note}</p>
+        <div className={s.footNote}>
+          <p>{footer.note}</p>
+          <p>{footer.credits}</p>
+        </div>
       </footer>
     </div>
   );
