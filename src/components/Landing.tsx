@@ -279,7 +279,7 @@ export default function Landing() {
                 <p className={s.body}>{f.text}</p>
                 <dl className={s.specs}>
                   <div>
-                    <dt>Соус</dt>
+                    <dt>Джем</dt>
                     <dd>{f.sauce}</dd>
                   </div>
                   <div>
