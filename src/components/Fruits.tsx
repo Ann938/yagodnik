@@ -78,7 +78,7 @@ export default function Fruits({ flavor, layer }: { flavor: number; layer: "back
                 } as React.CSSProperties
               }
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+              { }
               <img src={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/${pic.src}`} alt="" loading={fi === 0 ? "eager" : "lazy"} decoding="async" />
             </div>
           );

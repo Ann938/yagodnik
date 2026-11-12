@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { find, flavors, footer, hero, inside, nav, pour, ritual } from "@/content";
+import { flavors, footer, hero, inside, nav, pour, ritual } from "@/content";
 import { stage } from "@/three/stage";
+import Find from "./Find";
 import Fruits from "./Fruits";
 import Product from "./Product";
 import s from "./landing.module.scss";
@@ -13,16 +14,6 @@ if (typeof window !== "undefined") gsap.registerPlugin(ScrollTrigger);
 
 const clamp = (v: number, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 
-// фон блока «Где найти»: x, y — % блока, w — ширина в vw; раскладка вокруг текста и рожков
-const FIND_BERRIES = [
-  { src: "straw-half", x: 45, y: 12, w: 7, r: -20 },
-  { src: "rasp-whole", x: 95, y: 12, w: 8, r: 18 },
-  { src: "bb-whole", x: 53, y: 88, w: 9, r: -8, blur: true },
-  { src: "rasp-half", x: 93, y: 84, w: 7, r: -24 },
-  { src: "straw-whole", x: 4, y: 92, w: 11, r: 16, blur: true },
-  { src: "bb-half", x: 44, y: 55, w: 5, r: 30 },
-  { src: "straw-side", x: 101, y: 52, w: 8, r: 8 },
-];
 
 function Arrow() {
   return (
@@ -258,7 +249,7 @@ export default function Landing() {
                 <p className={s.body}>{f.text}</p>
                 <dl className={s.specs}>
                   <div>
-                    <dt>Сверху</dt>
+                    <dt>Соус</dt>
                     <dd>{f.sauce}</dd>
                   </div>
                   <div>
@@ -301,17 +292,6 @@ export default function Landing() {
               <p className={s.note} data-reveal>
                 {inside.note}
               </p>
-              <ul className={s.stats}>
-                {inside.stats.map((st, i) => (
-                  <li key={i} data-reveal style={{ ["--d" as string]: i + 1 }}>
-                    <b>
-                      {st.num}
-                      <small>{st.unit}</small>
-                    </b>
-                    <span>{st.text}</span>
-                  </li>
-                ))}
-              </ul>
             </div>
           </div>
         </section>
@@ -337,49 +317,8 @@ export default function Landing() {
           </ol>
         </section>
 
-        {/* ---------- 06 · где найти ---------- */}
-        <section id="find" className={s.find}>
-          {/* кусочки всех ягод, которые есть в мороженом */}
-          <div className={s.findBerries} aria-hidden>
-            {FIND_BERRIES.map((b, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={i}
-                src={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/fruit/${b.src}.webp`}
-                alt=""
-                loading="lazy"
-                data-blur={b.blur || undefined}
-                style={{ ["--x" as string]: b.x, ["--y" as string]: b.y, ["--w" as string]: b.w, ["--r" as string]: `${b.r}deg`, ["--i" as string]: i } as React.CSSProperties}
-              />
-            ))}
-          </div>
-          <div className={s.findText}>
-            <p className={s.label} data-reveal>
-              {find.label}
-            </p>
-            <h2 className={s.h2} data-reveal style={{ ["--d" as string]: 1 }}>
-              {find.title}
-            </h2>
-            <p className={s.body} data-reveal style={{ ["--d" as string]: 2 }}>
-              {find.text}
-            </p>
-            <div className={s.price} data-reveal style={{ ["--d" as string]: 3 }}>
-              <b>{find.price}</b>
-              <span>{find.priceNote}</span>
-            </div>
-            <div className={s.findActions} data-reveal style={{ ["--d" as string]: 4 }}>
-              <a href="#top" className={s.btn}>
-                {find.cta}
-                <Arrow />
-              </a>
-            </div>
-            <ul className={s.cities} data-reveal style={{ ["--d" as string]: 5 }}>
-              {find.cities.map((c) => (
-                <li key={c}>{c}</li>
-              ))}
-            </ul>
-          </div>
-        </section>
+        {/* ---------- 06 · где найти: карта города ---------- */}
+        <Find />
       </main>
 
       <footer className={s.footer}>
@@ -391,10 +330,6 @@ export default function Landing() {
             </a>
           ))}
         </nav>
-        <div className={s.footNote}>
-          <p>{footer.note}</p>
-          <p>{footer.credits}</p>
-        </div>
       </footer>
     </div>
   );
