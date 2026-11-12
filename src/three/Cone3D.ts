@@ -46,8 +46,8 @@ function bodyGeometry(grow: number) {
       const s = Math.sin(a),
         c = Math.cos(a);
       pos.push((cx - 0.5) * K + r * K * s * grow, (v - 0.5) * HW, r * K * c * grow);
-      // проекция спереди; сзади — зеркально; чуть внутрь контура — край снимка полупрозрачный
-      uv.push(cx + r * 0.955 * s, v);
+      // проекция спереди; сзади — зеркально; фото внутри контура сплошное (build-cone.py), край чуть внутри
+      uv.push(cx + r * 0.985 * s, v);
     }
   }
   for (let i = 0; i < rows.length - 1; i++)
