@@ -3,6 +3,7 @@
 // ---------- 06 · где найти: карта города на фоне, карточка с выбором города ----------
 .find {
   position: relative;
+  isolation: isolate; // карта под карточкой, но клики по ней доходят
   min-height: 100svh;
   display: flex;
   align-items: center;
@@ -17,7 +18,7 @@
 // карта — на всю ширину экрана, края растворяются в фоне
 .mapWrap {
   position: absolute;
-  z-index: -1;
+  z-index: 0;
   top: 0;
   bottom: 0;
   left: 50%;
@@ -30,6 +31,9 @@
   }
 }
 .map {
+  position: relative;
+  z-index: 1;
+  pointer-events: none; // клики проходят на ссылку города; метки ловят их сами
   width: 100%;
   height: 100%;
   display: block;
@@ -68,8 +72,16 @@
 .roadMain { stroke-width: 11; }
 
 // метка-ягода: падает сверху с отскоком, под ней пульсирует тень-кольцо
+.mapLink {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
 .pin {
-  pointer-events: none;
+  pointer-events: auto;
+  cursor: pointer;
+  .drop { transition: filter 0.3s; }
+  &:hover .drop { filter: brightness(1.04) drop-shadow(0 4px 10px rgba(40, 10, 20, 0.25)); }
 }
 .drop {
   animation: pinDrop 0.75s cubic-bezier(0.34, 1.56, 0.64, 1) both;
@@ -109,6 +121,7 @@
 // карточка поверх карты
 .card {
   position: relative;
+  z-index: 2;
   width: u(520);
   padding: u(40);
   border-radius: u(32);
@@ -194,25 +207,10 @@
   border-top: u(1.5) solid var(--line);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: u(16);
   // цена слева, кнопка напротив; на МВ кнопка уходит под цену во всю ширину
   @include mobile { flex-wrap: wrap; }
-}
-.price {
-  display: flex;
-  align-items: baseline;
-  gap: u(10);
-  b {
-    @include display;
-    font-size: u(40);
-    letter-spacing: u(-1.6);
-  }
-  span {
-    font-weight: 600;
-    font-size: u(14);
-    color: var(--muted);
-  }
 }
 .btn {
   @include btn(56);

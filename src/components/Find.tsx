@@ -35,6 +35,10 @@ function Arrow() {
   );
 }
 
+// внешние карты: метка → Яндекс Карты с этим местом; кнопка и свободная часть карты → 2ГИС по городу
+const yandex = (place: string, city: string) => `https://yandex.ru/maps/?text=${encodeURIComponent(`${place}, ${city}`)}`;
+const gis = (slug: string) => `https://2gis.ru/${slug}/search/${encodeURIComponent("мороженое")}`;
+
 // Блок «Где найти»: на фоне — стилизованная карта выбранного города, киоски отмечены знаком «Ягодника».
 // Смена города: карта мягко проявляется с лёгким приближением, метки падают по очереди.
 export default function Find() {
@@ -43,7 +47,9 @@ export default function Find() {
 
   return (
     <section id="find" className={s.find}>
-      <div className={s.mapWrap} aria-hidden>
+      <div className={s.mapWrap}>
+        {/* клик по свободной части карты — город в 2ГИС */}
+        <a className={s.mapLink} href={gis(city.gis)} target="_blank" rel="noopener noreferrer" aria-label={`${city.name} в 2ГИС`} />
         <svg className={s.map} viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
           <defs>
             <pattern id={`blocks-${city.id}`} width="64" height="48" patternUnits="userSpaceOnUse" patternTransform={`rotate(${city.rot})`}>
@@ -71,7 +77,8 @@ export default function Find() {
           </g>
           <g key={`pins-${city.id}`}>
             {city.kiosks.map((k, i) => (
-              <g key={k.name} className={s.pin} transform={`translate(${k.x} ${k.y})`} style={{ ["--i" as string]: i }}>
+              <a key={k.name} href={yandex(k.name, city.name)} target="_blank" rel="noopener noreferrer" aria-label={`${k.name} на Яндекс Картах`}>
+              <g className={s.pin} transform={`translate(${k.x} ${k.y})`} style={{ ["--i" as string]: i }}>
                 <ellipse className={s.pulse} rx="26" ry="9" />
                 <g className={s.drop}>
                   {/* метка: белый кружок с хвостиком, внутри знак бренда */}
@@ -84,6 +91,7 @@ export default function Find() {
                   </text>
                 </g>
               </g>
+              </a>
             ))}
           </g>
         </svg>
@@ -115,10 +123,7 @@ export default function Find() {
           ))}
         </ul>
         <div className={s.bottom} data-reveal style={{ ["--d" as string]: 4 }}>
-          <div className={s.price}>
-            <b>{find.price}</b>
-          </div>
-          <a href="#top" className={s.btn}>
+          <a href={gis(city.gis)} target="_blank" rel="noopener noreferrer" className={s.btn}>
             {find.cta}
             <Arrow />
           </a>

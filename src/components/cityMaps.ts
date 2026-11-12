@@ -6,6 +6,7 @@ export type Kiosk = { name: string; x: number; y: number };
 export type CityMap = {
   id: string;
   name: string;
+  gis: string; // город в адресе 2ГИС
   water: { d: string; w?: number }[]; // реки — толстая линия; без w — залитая область (пруд, залив)
   parks: { cx: number; cy: number; rx: number; ry: number; rot?: number }[];
   roads: { d: string; main?: boolean }[];
@@ -16,6 +17,7 @@ export type CityMap = {
 export const cities: CityMap[] = [
   {
     id: "msk",
+    gis: "moscow",
     name: "Москва",
     rot: -12,
     water: [
@@ -46,6 +48,7 @@ export const cities: CityMap[] = [
   },
   {
     id: "spb",
+    gis: "spb",
     name: "Санкт-Петербург",
     rot: 8,
     water: [
@@ -78,6 +81,7 @@ export const cities: CityMap[] = [
   },
   {
     id: "kzn",
+    gis: "kazan",
     name: "Казань",
     rot: 18,
     water: [
@@ -106,6 +110,7 @@ export const cities: CityMap[] = [
   },
   {
     id: "ekb",
+    gis: "ekaterinburg",
     name: "Екатеринбург",
     rot: 0,
     water: [
@@ -134,6 +139,7 @@ export const cities: CityMap[] = [
   },
   {
     id: "nn",
+    gis: "n_novgorod",
     name: "Нижний Новгород",
     rot: -20,
     water: [
