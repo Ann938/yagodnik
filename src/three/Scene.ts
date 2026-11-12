@@ -59,11 +59,16 @@ const pathPoint = (s: number, out = new THREE.Vector3()) => {
 };
 
 // трубка вдоль спирали; сегменты идут по порядку, поэтому drawRange = «сколько уже налито»
-// fFrom..fTo — какая часть сечения строится (соус лежит только сверху витка и стекает по внешней стороне)
-function swirlGeometry(s0: number, s1: number, rScale: number, ridge: number, reverse: boolean, fFrom = 0, fTo = Math.PI * 2) {
-  const SEG = 360,
-    M = 36;
+// Трубка вдоль спирали. Сегменты идут по порядку, поэтому drawRange = «сколько уже налито».
+// fFrom..fTo — какая часть сечения строится (соус лежит только сверху витка).
+// Реализм: рёбра звёздчатой насадки закручиваются вдоль витка, толщина чуть «гуляет»,
+// в ложбинках и под витками темнее (запечённое в цвета вершин затенение).
+function swirlGeometry(s0: number, s1: number, rScale: number, ridge: number, reverse: boolean, fFrom = 0, fTo = Math.PI * 2, twist = 9) {
+  const SEG = 420,
+    M = 56;
   const pos: number[] = [],
+    col: number[] = [],
+    uv: number[] = [],
     idx: number[] = [];
   const p = new THREE.Vector3(),
     p2 = new THREE.Vector3(),
@@ -84,13 +89,24 @@ function swirlGeometry(s0: number, s1: number, rScale: number, ridge: number, re
     N.set(Math.cos(a), 0, Math.sin(a));
     N.sub(T.clone().multiplyScalar(N.dot(T))).normalize();
     B.crossVectors(T, N).normalize();
-    const r = tubeR(s) * rScale;
+    // живая неровность: струя из аппарата никогда не бывает идеальной
+    const wob = 1 + 0.045 * Math.sin(a * 1.3 + 0.7) + 0.025 * Math.sin(s * 57) + 0.015 * Math.sin(s * 131);
+    const r = tubeR(s) * rScale * wob;
     for (let j = 0; j <= M; j++) {
       const f = fFrom + (j / M) * (fTo - fFrom);
-      const rr = r * (1 + ridge * Math.cos(f * 8)); // звёздчатая насадка — рёбра вдоль витка
+      const ph = f * 8 + s * twist * Math.PI * 2; // рёбра закручиваются вдоль витка
+      const c = Math.cos(ph);
+      const shape = 0.5 + 0.5 * c;
+      const rr = r * (1 - ridge + ridge * 2 * Math.pow(shape, 0.7));
       n.copy(N).multiplyScalar(Math.cos(f)).addScaledVector(B, Math.sin(f));
       v.copy(p).addScaledVector(n, rr);
       pos.push(v.x, v.y, v.z);
+      // затенение: ложбинки и нижняя сторона витка (там его прижимает следующий)
+      const groove = 1 - 0.22 * Math.pow(1 - shape, 2);
+      const under = 1 - 0.32 * Math.max(0, -n.y) - 0.12 * Math.max(0, -n.dot(N));
+      const sh = groove * under;
+      col.push(sh, sh, sh);
+      uv.push(k * 60, j / M);
     }
   }
   for (let i = 0; i < SEG; i++)
@@ -101,9 +117,43 @@ function swirlGeometry(s0: number, s1: number, rScale: number, ridge: number, re
     }
   const g = new THREE.BufferGeometry();
   g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+  g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
   g.setIndex(idx);
   g.computeVertexNormals();
   return { geo: g, seg: SEG, perSeg: M * 6 };
+}
+
+// белый цвет вершин для геометрий без затенения (материалы с vertexColors иначе читают чёрный)
+function white<G extends THREE.BufferGeometry>(g: G): G {
+  g.setAttribute("color", new THREE.Float32BufferAttribute(new Array(g.getAttribute("position").count * 3).fill(1), 3));
+  return g;
+}
+
+// мелкая фактура взбитого пломбира: шум для bumpMap (крошечные поры и неровности)
+function creamNoise() {
+  const S = 256;
+  const c = document.createElement("canvas");
+  c.width = c.height = S;
+  const g = c.getContext("2d")!;
+  g.fillStyle = "#808080";
+  g.fillRect(0, 0, S, S);
+  let seed = 3;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+  for (let i = 0; i < 1800; i++) {
+    const x = rnd() * S,
+      y = rnd() * S,
+      r = 1 + rnd() * 4;
+    const gr = g.createRadialGradient(x, y, 0, x, y, r);
+    const v = rnd() < 0.5 ? 0 : 255;
+    gr.addColorStop(0, `rgba(${v},${v},${v},${0.18 + rnd() * 0.2})`);
+    gr.addColorStop(1, `rgba(${v},${v},${v},0)`);
+    g.fillStyle = gr;
+    g.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  return t;
 }
 
 // ---------- вафля ----------
@@ -167,7 +217,7 @@ type ConeModel = {
   glazePer: number;
 };
 
-function makeCone(waffle: THREE.Texture, fi: number): ConeModel {
+function makeCone(waffle: THREE.Texture, noise: THREE.Texture, fi: number): ConeModel {
   const root = new THREE.Group();
   const spin = new THREE.Group();
   spin.position.y = OFFSET_Y;
@@ -180,27 +230,48 @@ function makeCone(waffle: THREE.Texture, fi: number): ConeModel {
     pts.push(new THREE.Vector2(0.004 + CONE_R * Math.pow(k, 0.95), -CONE_H + k * CONE_H));
   }
   pts.push(new THREE.Vector2(CONE_R + 0.05, 0.02), new THREE.Vector2(CONE_R + 0.07, 0.1), new THREE.Vector2(CONE_R + 0.01, 0.14), new THREE.Vector2(CONE_R - 0.06, 0.1));
-  const waffleMat = new THREE.MeshPhysicalMaterial({ map: waffle, bumpMap: waffle, bumpScale: 2.2, roughness: 0.72, color: "#ffffff", sheen: 0.4, sheenColor: new THREE.Color("#ffd9a0") });
-  spin.add(new THREE.Mesh(new THREE.LatheGeometry(pts, 72), waffleMat));
+  const waffleMat = new THREE.MeshPhysicalMaterial({ map: waffle, bumpMap: waffle, bumpScale: 2.6, roughness: 0.78, color: "#ffffff", vertexColors: true, sheen: 0.35, sheenColor: new THREE.Color("#ffd9a0") });
+  // вафля румянее у края и у кончика — там она сильнее пропекается
+  const coneGeo = new THREE.LatheGeometry(pts, 72);
+  const cp = coneGeo.getAttribute("position");
+  const cc: number[] = [];
+  for (let i = 0; i < cp.count; i++) {
+    const k = (cp.getY(i) + CONE_H) / CONE_H; // 0 — кончик, 1 — край
+    const toast = 1 - 0.28 * Math.pow(Math.max(0, k - 0.82) / 0.18, 1.5) - 0.22 * Math.pow(Math.max(0, 0.25 - k) / 0.25, 1.4);
+    cc.push(toast, toast * 0.96, toast * 0.9);
+  }
+  coneGeo.setAttribute("color", new THREE.Float32BufferAttribute(cc, 3));
+  spin.add(new THREE.Mesh(coneGeo, waffleMat));
 
   const f = flavors[fi];
-  const creamMat = new THREE.MeshPhysicalMaterial({ color: f.cream, roughness: 0.62, sheen: 0.25, sheenRoughness: 0.8, sheenColor: new THREE.Color("#ffffff") });
-  const glazeMat = new THREE.MeshPhysicalMaterial({ color: f.glaze, roughness: 0.14, clearcoat: 1, clearcoatRoughness: 0.06, side: THREE.DoubleSide });
+  // пломбир: матовый, с бархатистым отливом и мелкой фактурой
+  const creamMat = new THREE.MeshPhysicalMaterial({ color: f.cream, vertexColors: true, roughness: 0.58, bumpMap: noise, bumpScale: 0.6, sheen: 0.5, sheenRoughness: 0.6, sheenColor: new THREE.Color("#fff6ee"), clearcoat: 0.08, clearcoatRoughness: 0.6 });
+  const glazeMat = new THREE.MeshPhysicalMaterial({ color: f.glaze, vertexColors: true, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.04, side: THREE.DoubleSide });
 
   // «шапка» пломбира, на которой лежит нижний виток
-  const cap = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 16, 0, Math.PI * 2, 0, Math.PI / 2).scale(CONE_R * 0.98, 0.22, CONE_R * 0.98), creamMat);
-  cap.position.y = 0.04;
+  const capGeo = new THREE.SphereGeometry(1, 48, 16, 0, Math.PI * 2, 0, Math.PI / 2).scale(CONE_R * 0.97, 0.3, CONE_R * 0.97);
+  // шапка в тени нижнего витка: темнее к краю
+  const cg = capGeo.getAttribute("position");
+  const ccol: number[] = [];
+  for (let i = 0; i < cg.count; i++) {
+    const r = Math.hypot(cg.getX(i), cg.getZ(i)) / CONE_R;
+    const v = 0.78 + 0.12 * (1 - r);
+    ccol.push(v, v, v);
+  }
+  capGeo.setAttribute("color", new THREE.Float32BufferAttribute(ccol, 3));
+  const cap = new THREE.Mesh(capGeo, creamMat);
+  cap.position.y = 0.02;
   spin.add(cap);
 
-  const sw = swirlGeometry(0, 1, 1, 0.13, false);
+  const sw = swirlGeometry(0, 1, 1, 0.11, false);
   const swirl = new THREE.Mesh(sw.geo, creamMat);
   spin.add(swirl);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), creamMat);
+  const head = new THREE.Mesh(white(new THREE.SphereGeometry(1, 24, 16)), creamMat);
   spin.add(head);
 
   // соус: та же спираль, чуть толще и глаже, растёт от макушки вниз
   // сечение: верх витка и внутренняя сторона; внешний бок остаётся пломбирным, по нему бегут капли
-  const gl = swirlGeometry(0.3, 1, 1.045, 0.02, true, 0.3, Math.PI * 0.97);
+  const gl = swirlGeometry(0.3, 1, 1.07, 0.035, true, 0.3, Math.PI * 0.97, 9);
   const glaze = new THREE.Mesh(gl.geo, glazeMat);
   spin.add(glaze);
 
@@ -214,7 +285,7 @@ function makeCone(waffle: THREE.Texture, fi: number): ConeModel {
     prof.push(new THREE.Vector2(k === 1 ? 0.0005 : r, -k));
   }
   prof.reverse();
-  const dripGeo = new THREE.LatheGeometry(prof, 16);
+  const dripGeo = white(new THREE.LatheGeometry(prof, 16));
   const pp = new THREE.Vector3();
   for (let i = 0; i < 9; i++) {
     const s = 0.3 + (i / 9) * 0.3; // по нижнему витку соуса
@@ -261,7 +332,7 @@ export function createScene(canvas: HTMLCanvasElement, onReady?: () => void) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, mobile ? 2 : 1.75));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  renderer.toneMappingExposure = 0.92;
 
   const scene = new THREE.Scene();
   const pmrem = new THREE.PMREMGenerator(renderer);
@@ -269,19 +340,20 @@ export function createScene(canvas: HTMLCanvasElement, onReady?: () => void) {
 
   const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 50);
   camera.position.set(0, 0, 7.5);
-  const key = new THREE.DirectionalLight("#fff3e6", 1.8);
+  const key = new THREE.DirectionalLight("#fff3e6", 2.2);
   key.position.set(3, 5, 4);
   scene.add(key);
   const rim = new THREE.DirectionalLight("#ffffff", 1.1);
   rim.position.set(-4, 3, -3);
   scene.add(rim);
-  scene.add(new THREE.HemisphereLight("#ffffff", "#e8cfc6", 0.45));
+  scene.add(new THREE.HemisphereLight("#ffffff", "#b89a90", 0.3));
 
   const waffle = waffleTexture();
-  const main = makeCone(waffle, stage.flavor);
+  const noise = creamNoise();
+  const main = makeCone(waffle, noise, stage.flavor);
   scene.add(main.root);
   // ещё два рожка для финала — с другими вкусами, сразу полные
-  const extra = [makeCone(waffle, 1), makeCone(waffle, 2)];
+  const extra = [makeCone(waffle, noise, 1), makeCone(waffle, noise, 2)];
   extra.forEach((c) => {
     setFill(c, 1, 1);
     c.root.visible = false;
@@ -289,7 +361,7 @@ export function createScene(canvas: HTMLCanvasElement, onReady?: () => void) {
   });
 
   // струи сверху: пломбир из аппарата, потом соус
-  const streamGeo = new THREE.CylinderGeometry(1, 1, 1, 20, 1, true).translate(0, 0.5, 0);
+  const streamGeo = white(new THREE.CylinderGeometry(1, 1, 1, 20, 1, true).translate(0, 0.5, 0));
   const creamStream = new THREE.Mesh(streamGeo, main.creamMat);
   const glazeStream = new THREE.Mesh(streamGeo, main.glazeMat);
   main.spin.add(creamStream, glazeStream);
