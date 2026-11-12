@@ -182,7 +182,7 @@
 }
 .headerBtn {
   @include btn-ghost;
-  @include mobile { height: u(40); padding-inline: u(16); font-size: u(13); }
+  @include mobile { height: u(40); padding-inline: u(16); font-size: u(14); }
 }
 
 // ---------- 01 · первый экран ----------
@@ -448,7 +448,7 @@
     span {
       font-family: var(--font-sans);
       font-weight: 700;
-      font-size: u(13);
+      font-size: u(14);
       letter-spacing: 0.1em;
       color: var(--accent);
     }
@@ -592,7 +592,7 @@
     border-radius: u(100);
     border: u(1.5) solid var(--line);
     font-weight: 600;
-    font-size: u(13);
+    font-size: u(14);
   }
 }
 
@@ -643,17 +643,17 @@
       padding-block: u(10);
     }
     b { font-size: u(28); letter-spacing: u(-1); }
-    span { font-size: u(13); line-height: 1.45; }
+    span { font-size: u(14); line-height: 1.45; }
   }
   .flvTabs { margin-bottom: u(12); gap: u(12); font-size: u(10); }
   .flvSwap {
     .h2 { margin-top: u(10); }
-    .body { margin-top: u(12); font-size: u(13.5); }
+    .body { margin-top: u(12); font-size: u(14); }
   }
   .specs {
     margin-top: u(18);
     gap: u(10);
-    dd { font-size: u(13); }
+    dd { font-size: u(14); }
   }
   .flvBar { margin-top: u(20); }
 

@@ -147,7 +147,7 @@
     border-radius: u(100);
     border: u(1.5) solid var(--line);
     font-weight: 600;
-    font-size: u(13);
+    font-size: u(14);
     transition: background-color 0.3s, border-color 0.3s, color 0.3s;
     @media (hover: hover) {
       &:hover { border-color: var(--ink); }
