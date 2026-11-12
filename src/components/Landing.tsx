@@ -6,6 +6,7 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { find, flavors, footer, hero, inside, nav, pour, ritual } from "@/content";
 import { stage } from "@/three/stage";
 import Fruits from "./Fruits";
+import Product from "./Product";
 import s from "./landing.module.scss";
 
 if (typeof window !== "undefined") gsap.registerPlugin(ScrollTrigger);
@@ -72,10 +73,8 @@ function useFlavorWave() {
 }
 
 export default function Landing() {
-  const canvas = useRef<HTMLCanvasElement>(null);
   const root = useRef<HTMLDivElement>(null);
   const [flavor, setFlavor] = useState(0);
-  const [ready, setReady] = useState(false);
   const { wave, run } = useFlavorWave();
   const current = useRef(0);
 
@@ -89,20 +88,6 @@ export default function Landing() {
     },
     [run],
   );
-
-  // 3D-сцена грузится отдельно — three не попадает в первый бандл
-  useEffect(() => {
-    let dispose: (() => void) | undefined;
-    let dead = false;
-    import("@/three/Scene").then(({ createScene }) => {
-      if (dead || !canvas.current) return;
-      dispose = createScene(canvas.current, () => setReady(true));
-    });
-    return () => {
-      dead = true;
-      dispose?.();
-    };
-  }, []);
 
   // хореография по скроллу → stage и CSS-переменные
   const [factOn, setFactOn] = useState(0);
@@ -169,7 +154,7 @@ export default function Landing() {
         <div />
       </div>
       <Fruits flavor={flavor} layer="back" />
-      <canvas ref={canvas} className={s.canvas} data-ready={ready || undefined} aria-hidden />
+      <Product />
       <Fruits flavor={flavor} layer="front" />
 
       <header className={s.header} data-scrolled={scrolled || undefined}>

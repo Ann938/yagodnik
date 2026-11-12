@@ -1,0 +1,104 @@
+@use "styles/core" as *;
+
+// Слой с рожком — между дальними и ближними ягодами
+.stage {
+  position: fixed;
+  z-index: 3;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.cone {
+  --fill: 0;
+  --glaze: 0;
+  --top: calc((1 - var(--fill)) * var(--cb) * 100%);
+  --sauce-to: calc(var(--glaze) * var(--sb) * 100%);
+  position: absolute;
+  left: var(--cx, 70vw);
+  top: var(--cy, 50svh);
+  height: var(--ch, 80svh);
+  width: calc(var(--ch, 80svh) * var(--ar));
+  translate: -50% -50%;
+  rotate: var(--cr, 0deg);
+  opacity: 0;
+  transition: opacity 0.8s var(--ease);
+  &[data-ready] { opacity: 1; }
+  // цвет струй по вкусу
+  --cream-c: #fbeee2;
+  --sauce-c: #c0182c;
+  &[data-f="1"] { --cream-c: #c79874; --sauce-c: #3a1a0c; }
+  &[data-f="2"] { --cream-c: #f6f0f4; --sauce-c: #2f0a3a; }
+}
+
+// лёгкий 3D-наклон за курсором и мягкая тень
+.tilt {
+  position: absolute;
+  inset: 0;
+  transform: perspective(1400px) rotateY(calc(var(--tx, 0) * 22deg)) rotateX(calc(var(--ty, 0) * -10deg));
+  filter: drop-shadow(0 3vh 4vh rgba(70, 25, 15, 0.22));
+  img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+}
+
+// пломбир поднимается снизу: видно всё ниже «уровня» --top
+.cream {
+  position: absolute;
+  inset: 0;
+  -webkit-mask-image: linear-gradient(to bottom, transparent calc(var(--top) - 1.5%), #000 var(--top));
+  mask-image: linear-gradient(to bottom, transparent calc(var(--top) - 1.5%), #000 var(--top));
+  img {
+    opacity: 0;
+    transition: opacity 0.7s var(--ease);
+  }
+}
+// соус стекает сверху: видно всё выше --sauce-to, капли растут вместе с ним
+.sauce {
+  position: absolute;
+  inset: 0;
+  -webkit-mask-image: linear-gradient(to bottom, #000 var(--sauce-to), transparent calc(var(--sauce-to) + 2.5%));
+  mask-image: linear-gradient(to bottom, #000 var(--sauce-to), transparent calc(var(--sauce-to) + 2.5%));
+  img { opacity: 0; }
+}
+@for $i from 0 through 2 {
+  .cone[data-f="#{$i}"] .cream img[data-i="#{$i}"],
+  .cone[data-f="#{$i}"] .sauce img[data-i="#{$i}"] {
+    opacity: 1;
+  }
+}
+
+// струя пломбира из аппарата — бьёт в поднимающийся уровень
+.creamStream {
+  position: absolute;
+  left: 50%;
+  top: -150svh;
+  width: 9%;
+  height: calc(150svh + var(--top) + 1%);
+  translate: -50% 0;
+  border-radius: 0 0 50% 50% / 0 0 12px 12px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--cream-c) 82%, #8a6a50), var(--cream-c) 35%, #fff 50%, var(--cream-c) 65%, color-mix(in srgb, var(--cream-c) 80%, #8a6a50));
+  opacity: var(--cs, 0);
+  transition: opacity 0.25s;
+}
+// струя соуса — тонкая, на макушку
+.sauceStream {
+  position: absolute;
+  left: 56.5%;
+  top: -150svh;
+  width: 2.4%;
+  height: calc(150svh + 3%);
+  translate: -50% 0;
+  border-radius: 0 0 50% 50% / 0 0 6px 6px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--sauce-c) 70%, #000), var(--sauce-c) 40%, color-mix(in srgb, var(--sauce-c) 55%, #fff) 55%, var(--sauce-c) 70%);
+  opacity: var(--ss, 0);
+  transition: opacity 0.25s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tilt { transform: none; }
+}
