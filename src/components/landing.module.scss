@@ -197,15 +197,16 @@
   @include mobile {
     // МВ: заголовок → рожок → выбор вкуса → текст и кнопка
     justify-content: flex-start;
-    padding-block: u(92) u(28);
+    padding-block: u(84) u(20);
   }
 }
 .coneSpot {
   display: none;
+  // МВ: место под рожок забирает всё, что осталось на первом экране, — кнопка всегда видна
   @include mobile {
     display: block;
-    height: 40svh;
-    min-height: u(260);
+    flex: 1 1 0;
+    min-height: u(190);
   }
 }
 .heroText {
@@ -213,6 +214,7 @@
   // МВ: всё по центру; подзаголовок сразу под заголовком, ниже — рожок, ягодки и кнопка
   @include mobile {
     width: 100%;
+    flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;

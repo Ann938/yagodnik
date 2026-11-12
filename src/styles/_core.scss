@@ -31,7 +31,7 @@ $m-content: 358;
   font-size: u(80);
   line-height: 0.94;
   letter-spacing: u(-3.6);
-  @include mobile { font-size: u(40); letter-spacing: u(-1.4); line-height: 0.98; }
+  @include mobile { font-size: u(35); letter-spacing: u(-1.2); line-height: 0.98; }
 }
 @mixin type-h2 {
   @include display;
