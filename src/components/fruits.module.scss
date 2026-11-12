@@ -6,7 +6,7 @@
   pointer-events: none;
   overflow: hidden;
   // в блоках с длинным текстом ягоды отходят на второй план
-  opacity: calc(1 - var(--away, 0) * 0.7);
+  opacity: calc(1 - var(--away, 0));
   transition: opacity 0.4s;
   &[data-layer="back"] { z-index: 2; }
   &[data-layer="front"] { z-index: 4; }

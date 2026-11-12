@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import s from "./product.module.scss";
 
-// Рожок в 3D из фото (src/three/Cone3D.ts). three грузится отдельным чанком, чтобы не тормозить первый экран.
+// Рожок с наливом из видео (src/three/Pour.ts). Код грузится отдельным чанком, чтобы не тормозить первый экран.
 export default function Product() {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [ready, setReady] = useState(false);
@@ -11,9 +11,9 @@ export default function Product() {
   useEffect(() => {
     let dispose: (() => void) | undefined;
     let dead = false;
-    import("@/three/Cone3D").then(({ createCones }) => {
+    import("@/three/Pour").then(({ createPour }) => {
       if (dead || !canvas.current) return;
-      dispose = createCones(canvas.current, () => setReady(true));
+      dispose = createPour(canvas.current, () => setReady(true));
     });
     return () => {
       dead = true;

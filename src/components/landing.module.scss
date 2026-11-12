@@ -230,38 +230,89 @@
   gap: u(24);
   @include mobile { margin-top: u(22); gap: u(14); }
 }
-.pills {
+// переключатель вкусов: вертикальная колонка у правого края, как шкала — активный вкус «выдвигается»
+.rail {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  translate: 0 -50%;
   display: flex;
-  gap: u(8);
+  flex-direction: column;
+  align-items: flex-end;
+  gap: u(14);
+  @include mobile {
+    position: absolute;
+    top: 47svh;
+    right: 50%;
+    translate: 50% 0;
+    flex-direction: row;
+    gap: u(6);
+  }
 }
-.pill {
+.railLabel {
+  @include type-label;
+  color: var(--muted);
+  margin-bottom: u(6);
+  @include mobile { display: none; }
+}
+.railItem {
   display: inline-flex;
   align-items: center;
-  gap: u(8);
-  height: u(40);
-  padding-inline: u(14) u(18);
-  border-radius: u(100);
-  border: u(1.5) solid var(--line);
+  gap: u(12);
+  padding-block: u(4);
   font-weight: 600;
-  font-size: u(14);
-  transition: background-color 0.35s, border-color 0.35s, color 0.35s;
+  font-size: u(15);
+  color: var(--muted);
+  transition: color 0.35s;
   i {
-    width: u(12);
-    height: u(12);
+    position: relative;
+    width: u(14);
+    height: u(14);
     border-radius: 50%;
     background: var(--c);
-    box-shadow: 0 0 0 u(3) rgba(255, 255, 255, 0.6);
+    box-shadow: 0 0 0 u(3) rgba(255, 255, 255, 0.7);
+    transition: transform 0.45s var(--ease);
+    // черта-указатель у активного вкуса
+    &::after {
+      content: "";
+      position: absolute;
+      right: calc(100% + #{u(8)});
+      top: 50%;
+      width: 0;
+      height: u(2);
+      background: var(--ink);
+      transition: width 0.45s var(--ease);
+    }
   }
+  span { transition: transform 0.45s var(--ease); }
   @media (hover: hover) {
-    &:hover { border-color: var(--ink); }
+    &:hover { color: var(--ink); }
   }
   &[aria-pressed="true"] {
-    background: var(--ink);
-    border-color: var(--ink);
-    color: var(--cream);
+    color: var(--ink);
+    i { transform: scale(1.35); }
+    span { transform: translateX(u(-22)); }
+    i::after { width: u(16); }
   }
-  &:focus-visible { outline: u(2) solid var(--ink); outline-offset: u(3); }
-  @include mobile { height: u(36); font-size: u(13); padding-inline: u(10) u(14); }
+  &:focus-visible { outline: u(2) solid var(--ink); outline-offset: u(4); border-radius: u(6); }
+  @include mobile {
+    gap: u(6);
+    padding: u(7) u(12);
+    border-radius: u(100);
+    border: u(1.5) solid var(--line);
+    background: color-mix(in srgb, var(--bg) 70%, transparent);
+    backdrop-filter: blur(8px);
+    font-size: u(13);
+    flex-direction: row-reverse;
+    i { width: u(10); height: u(10); &::after { display: none; } }
+    &[aria-pressed="true"] {
+      background: var(--ink);
+      border-color: var(--ink);
+      color: var(--cream);
+      span { transform: none; }
+      i { transform: none; }
+    }
+  }
 }
 .scrollHint {
   position: absolute;
@@ -303,9 +354,9 @@
   li {
     display: grid;
     grid-template-columns: u(150) minmax(0, 1fr);
-    align-items: baseline;
+    align-items: center; // цифра и текст по центру строки
     gap: u(20);
-    padding-top: u(20);
+    padding-block: u(18);
     border-top: u(1.5) solid var(--line);
     opacity: 0.18;
     transform: translateX(u(-16));
@@ -315,6 +366,7 @@
   b {
     @include display;
     font-size: u(48);
+    line-height: 1;
     letter-spacing: u(-1.6);
     color: var(--accent);
   }
@@ -497,12 +549,46 @@
 
 // ---------- 06 · где найти ----------
 .find {
+  position: relative;
   @include container;
   min-height: 100svh;
   display: flex;
   align-items: center;
   // снизу подвал: смещаем текст ниже, чтобы в конце страницы он не уходил под шапку
   padding-block: u(260) u(40);
+}
+.findBerries {
+  // на всю ширину экрана, с обрезкой — ягоды могут заходить за край, но не дают горизонтальную прокрутку
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 100vw;
+  translate: -50% 0;
+  overflow: hidden;
+  z-index: -1;
+  pointer-events: none;
+  img {
+    position: absolute;
+    left: calc(var(--x) * 1%);
+    top: calc(var(--y) * 1%);
+    width: calc(var(--w) * 1vw);
+    translate: -50% -50%;
+    rotate: var(--r);
+    filter: drop-shadow(0 12px 16px rgba(40, 10, 30, 0.2));
+    animation: berryFloat 7s ease-in-out infinite alternate;
+    animation-delay: calc(var(--i) * -1.1s);
+    &[data-blur] { filter: blur(5px) drop-shadow(0 16px 20px rgba(40, 10, 30, 0.18)); }
+  }
+  @include mobile {
+    // на телефоне текст во всю ширину — оставляем только ягоды в верхних углах и справа
+    img { width: calc(var(--w) * 2.4vw); }
+    img:not(:nth-child(1), :nth-child(2), :nth-child(4)) { display: none; }
+  }
+}
+@keyframes berryFloat {
+  from { transform: translateY(0) rotate(-4deg); }
+  to { transform: translateY(-14px) rotate(4deg); }
 }
 .findText {
   width: u(560);
@@ -586,7 +672,7 @@
     li {
       grid-template-columns: u(84) minmax(0, 1fr);
       gap: u(12);
-      padding-top: u(10);
+      padding-block: u(10);
     }
     b { font-size: u(28); letter-spacing: u(-1); }
     span { font-size: u(13); line-height: 1.45; }

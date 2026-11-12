@@ -13,6 +13,17 @@ if (typeof window !== "undefined") gsap.registerPlugin(ScrollTrigger);
 
 const clamp = (v: number, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 
+// фон блока «Где найти»: x, y — % блока, w — ширина в vw; раскладка вокруг текста и рожков
+const FIND_BERRIES = [
+  { src: "straw-half", x: 45, y: 12, w: 7, r: -20 },
+  { src: "rasp-whole", x: 95, y: 12, w: 8, r: 18 },
+  { src: "bb-whole", x: 53, y: 88, w: 9, r: -8, blur: true },
+  { src: "rasp-half", x: 93, y: 84, w: 7, r: -24 },
+  { src: "straw-whole", x: 4, y: 92, w: 11, r: 16, blur: true },
+  { src: "bb-half", x: 44, y: 55, w: 5, r: 30 },
+  { src: "straw-side", x: 101, y: 52, w: 8, r: 8 },
+];
+
 function Arrow() {
   return (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
@@ -118,8 +129,7 @@ export default function Landing() {
         css("--flvIn", stage.flvIn * (1 - p)); // ягоды возвращаются на правую сторону к финалу
       });
       st("#find", "top bottom", "top 10%", (p) => {
-        stage.buyIn = p;
-        if (p > 0) css("--away", 1 - p);
+        stage.buyIn = p; // летающие ягоды остаются скрытыми — у блока свои кусочки ягод на фоне
       });
       ScrollTrigger.create({
         trigger: "#find",
@@ -192,22 +202,24 @@ export default function Landing() {
                 {hero.cta}
                 <Arrow />
               </a>
-              <div className={s.pills} role="group" aria-label="Вкус">
-                {flavors.map((fl, i) => (
-                  <button
-                    key={fl.id}
-                    type="button"
-                    className={s.pill}
-                    aria-pressed={i === flavor}
-                    onClick={() => choose(i)}
-                    style={{ ["--c" as string]: fl.accent }}
-                  >
-                    <i />
-                    {fl.name}
-                  </button>
-                ))}
-              </div>
             </div>
+          </div>
+          {/* переключатель вкусов: на ДВ — вертикальная колонка справа от рожка, на МВ — строка под ним */}
+          <div className={s.rail} role="group" aria-label="Вкус">
+            <span className={s.railLabel}>Вкус</span>
+            {flavors.map((fl, i) => (
+              <button
+                key={fl.id}
+                type="button"
+                className={s.railItem}
+                aria-pressed={i === flavor}
+                onClick={() => choose(i)}
+                style={{ ["--c" as string]: fl.accent }}
+              >
+                <span>{fl.name}</span>
+                <i />
+              </button>
+            ))}
           </div>
           <span className={s.scrollHint}>Листайте</span>
         </section>
@@ -327,6 +339,20 @@ export default function Landing() {
 
         {/* ---------- 06 · где найти ---------- */}
         <section id="find" className={s.find}>
+          {/* кусочки всех ягод, которые есть в мороженом */}
+          <div className={s.findBerries} aria-hidden>
+            {FIND_BERRIES.map((b, i) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={i}
+                src={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/fruit/${b.src}.webp`}
+                alt=""
+                loading="lazy"
+                data-blur={b.blur || undefined}
+                style={{ ["--x" as string]: b.x, ["--y" as string]: b.y, ["--w" as string]: b.w, ["--r" as string]: `${b.r}deg`, ["--i" as string]: i } as React.CSSProperties}
+              />
+            ))}
+          </div>
           <div className={s.findText}>
             <p className={s.label} data-reveal>
               {find.label}
