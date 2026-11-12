@@ -14,7 +14,6 @@ export type FruitPic = { src: string; w: number; h: number };
 export type Flavor = {
   id: FlavorId;
   name: string; // в переключателе
-  word: string; // огромное слово на фоне
   title: string; // заголовок блока вкуса
   text: string;
   sauce: string; // чем заливаем
@@ -36,7 +35,6 @@ export const flavors: Flavor[] = [
   {
     id: "strawberry",
     name: "Клубника",
-    word: "клубника",
     title: "Клубника со сливками",
     text: "Сливочный пломбир с клубничным пюре, сверху — густой соус из целых ягод. Кислинка ягоды и сливки, как летом на даче.",
     sauce: "Соус: клубника 60%",
@@ -52,7 +50,6 @@ export const flavors: Flavor[] = [
   {
     id: "chocolate",
     name: "Шоколад",
-    word: "шоколад",
     title: "Двойной шоколад",
     text: "Какао-пломбир, залитый тёмным шоколадом 70%, который застывает тонкой хрустящей коркой. Горечь держит сладость в узде.",
     sauce: "Глазурь: шоколад 70%",
@@ -68,7 +65,6 @@ export const flavors: Flavor[] = [
   {
     id: "blackberry",
     name: "Ежевика",
-    word: "ежевика",
     title: "Ежевика и ваниль",
     text: "Ванильный пломбир под терпким ежевичным конфи. Почти винная ягода и густые сливки — самый взрослый вкус в меню.",
     sauce: "Конфи: ежевика 55%",

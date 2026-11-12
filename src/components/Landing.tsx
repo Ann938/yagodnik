@@ -75,7 +75,6 @@ export default function Landing() {
   const canvas = useRef<HTMLCanvasElement>(null);
   const root = useRef<HTMLDivElement>(null);
   const [flavor, setFlavor] = useState(0);
-  const [word, setWord] = useState(0); // слово на фоне меняется, когда волна закрыла экран
   const [ready, setReady] = useState(false);
   const { wave, run } = useFlavorWave();
   const current = useRef(0);
@@ -87,7 +86,6 @@ export default function Landing() {
       stage.flavor = i;
       setFlavor(i);
       run(i);
-      window.setTimeout(() => setWord(current.current), 650);
     },
     [run],
   );
@@ -142,8 +140,6 @@ export default function Landing() {
         onUpdate: (t) => (stage.buyPx = t.progress * (t.end - t.start)),
         onRefresh: (t) => (stage.buyPx = t.progress * (t.end - t.start)),
       });
-      // огромное слово на фоне едет по горизонтали со скроллом
-      ScrollTrigger.create({ start: 0, end: "max", onUpdate: (t) => css("--sc", t.progress) });
     }, root);
     return () => ctx.revert();
   }, [choose]);
@@ -161,13 +157,9 @@ export default function Landing() {
 
   return (
     <div ref={root} className={s.page}>
-      {/* фон: свечение за рожком, огромное слово вкуса и зерно */}
+      {/* фон: свечение за рожком и зерно */}
       <div className={s.backdrop} aria-hidden>
         <div className={s.glow} />
-        <p className={s.word} key={flavors[word].id}>
-          <span>{flavors[word].word}</span>
-          <span>{flavors[word].word}</span>
-        </p>
         <div className={s.grain} />
       </div>
       <div ref={wave} className={s.wave} aria-hidden>
