@@ -437,36 +437,6 @@
     }
   }
 }
-.still {
-  position: relative;
-  aspect-ratio: 1 / 1.05;
-  img {
-    position: absolute;
-    left: calc(var(--x) * 1%);
-    top: calc(var(--y) * 1%);
-    width: calc(var(--w) * 1%);
-    translate: -50% -50%;
-    rotate: var(--r);
-    filter: drop-shadow(0 u(18) u(22) rgba(60, 10, 25, 0.25));
-    animation: stillFloat 6s ease-in-out infinite alternate;
-    animation-delay: calc(var(--i) * -1s);
-  }
-}
-// мягкий круг-«тарелка» в цвете вкуса
-.stillDisc {
-  position: absolute;
-  inset: 8% 6% 6% 8%;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, #fff 55%, var(--bg2)), var(--bg2) 60%, color-mix(in srgb, var(--accent) 22%, var(--bg2)));
-  transition: background 0.6s var(--ease);
-}
-@keyframes stillFloat {
-  from { transform: translateY(0) rotate(-3deg); }
-  to { transform: translateY(u(-12)) rotate(3deg); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .still img { animation: none; }
-}
 .stats {
   margin-top: u(24);
   display: grid;
@@ -680,7 +650,6 @@
     gap: u(14);
     padding-block: u(16);
   }
-  .still { max-width: u(340); margin-inline: auto; width: 100%; }
   .stats li {
     grid-template-columns: u(110) minmax(0, 1fr);
     padding: u(16) u(18);

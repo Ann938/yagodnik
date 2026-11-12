@@ -15,15 +15,6 @@ if (typeof window !== "undefined") gsap.registerPlugin(ScrollTrigger);
 
 const clamp = (v: number, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 
-// натюрморт в блоке состава: x, y — центр в % блока, w — ширина в % блока
-const STILL = [
-  { src: "straw-whole", x: 38, y: 40, w: 46, r: -12 },
-  { src: "bb-whole", x: 72, y: 30, w: 30, r: 14 },
-  { src: "rasp-whole", x: 70, y: 66, w: 32, r: -18 },
-  { src: "straw-half", x: 30, y: 76, w: 34, r: 22 },
-  { src: "bb-half", x: 16, y: 22, w: 18, r: -30 },
-  { src: "rasp-half", x: 90, y: 86, w: 16, r: 26 },
-];
 
 
 function Arrow() {
@@ -127,10 +118,10 @@ export default function Landing() {
         css("--flv", p);
       });
       st("#inside", "top bottom", "top 15%", (p) => {
-        stage.away = p;
-        css("--away", p);
+        stage.away = p; // рожок улетает уже на составе, а ягоды летят и здесь — гаснут с блока «Как есть»
         css("--flvIn", stage.flvIn * (1 - p)); // ягоды возвращаются на правую сторону к финалу
       });
+      st("#ritual", "top bottom", "top 40%", (p) => css("--away", p));
       st("#find", "top bottom", "top 10%", (p) => {
         stage.buyIn = p; // летающие ягоды остаются скрытыми — у блока свои кусочки ягод на фоне
       });
@@ -315,25 +306,11 @@ export default function Landing() {
                 </li>
               ))}
             </ol>
-            {/* натюрморт из ягод, которые идут в мороженое */}
-            <div className={s.still} aria-hidden data-reveal style={{ ["--d" as string]: 2 }}>
-              <div className={s.stillDisc} />
-              {STILL.map((b, i) => (
-                 
-                <img
-                  key={i}
-                  src={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/fruit/${b.src}.webp`}
-                  alt=""
-                  loading="lazy"
-                  style={{ ["--x" as string]: b.x, ["--y" as string]: b.y, ["--w" as string]: b.w, ["--r" as string]: `${b.r}deg`, ["--i" as string]: i } as React.CSSProperties}
-                />
-              ))}
-            </div>
           </div>
         </section>
 
         {/* ---------- 05 · как есть ---------- */}
-        <section className={s.ritual}>
+        <section id="ritual" className={s.ritual}>
           <div className={s.ritualHead}>
             <p className={s.label} data-reveal>
               {ritual.label}
