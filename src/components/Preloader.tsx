@@ -7,7 +7,7 @@ import s from "./preloader.module.scss";
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH || "";
 // что нужно первому экрану: слои рожка текущего вкуса и фото ягод вокруг
 const FIRST = [
-  "cone/full-strawberry.webp",
+  "cone/atlas-strawberry.webp",
   ...Array.from(new Set(flavors[0].fruits.map((f) => f.src))),
 ];
 

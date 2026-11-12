@@ -1,8 +1,8 @@
-// Рожок в 3D из фото. Форма — тело вращения по контуру снимка (profile.json: центр и полуширина
-// каждой строки), фото натянуто проекцией спереди; задняя сторона получает зеркальную копию передней —
-// рожок и пломбир почти круглые, поэтому при повороте это незаметно.
-// На каждый вкус — своё цельное фото (public/cone/full-<вкус>.webp, одинаковый кадр): без слоёв и швов.
-// При смене вкуса новое фото проступает поверх старого. Динамика страницы — в ягодах на фоне.
+// Рожок в 3D по четырём ракурсам (лист пользователя «Четыре ракурса…»): тело вращения по общему профилю,
+// на каждую сторону ложится ракурс, который на неё смотрит (0°, 90°, 180°, 270°), между соседними — плавный переход.
+// Поэтому рожок можно поворачивать широко: сзади настоящая сторона, а не зеркальная копия передней.
+// Вкус меняет только джем: атласы public/cone/atlas-<вкус>.webp (собирает scripts/build-cone.py).
+// При смене вкуса новый атлас проступает поверх старого. Динамика страницы — в ягодах на фоне.
 import * as THREE from "three";
 import { stage } from "./stage";
 import profile from "./profile.json";
@@ -10,7 +10,7 @@ import profile from "./profile.json";
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH || "";
 const IDS = ["strawberry", "blackberry", "raspberry"] as const; // порядок как в content.ts
 const HW = 3.2; // высота модели в единицах сцены
-const K = (profile.w / profile.h) * HW; // доля ширины картинки → единицы
+const K = (profile.w / profile.h) * HW; // доля ширины плитки ракурса → единицы сцены
 
 type Pose = { x: number; y: number; h: number; r: number }; // как в вёрстке: центр в vw/vh, высота в vh, наклон в градусах
 const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
@@ -32,25 +32,38 @@ const POSES: Record<"desk" | "mob", Record<string, Pose>> = {
   },
 };
 
-const rows = profile.rows;
-
-function bodyGeometry(grow: number) {
-  const J = 128;
+// ---- геометрия: тело вращения; для каждой вершины — координаты в каждом из 4 ракурсов и их вес
+function bodyGeometry() {
+  const J = 160;
+  const N = profile.v.length;
   const pos: number[] = [],
-    uv: number[] = [],
+    uvA: number[] = [],
+    uvB: number[] = [],
+    wts: number[] = [],
     idx: number[] = [];
-  for (let i = 0; i < rows.length; i++) {
-    const { v, cx, r } = rows[i];
+  for (let i = 0; i < N; i++) {
+    const v = profile.v[i];
+    const r = profile.r[i];
     for (let j = 0; j <= J; j++) {
-      const a = -Math.PI + (j / J) * Math.PI * 2;
-      const s = Math.sin(a),
-        c = Math.cos(a);
-      pos.push((cx - 0.5) * K + r * K * s * grow, (v - 0.5) * HW, r * K * c * grow);
-      // проекция спереди; сзади — зеркально; фото внутри контура сплошное (build-cone.py), край чуть внутри
-      uv.push(cx + r * 0.985 * s, v);
+      const a = (j / J) * Math.PI * 2;
+      pos.push(r * K * Math.sin(a), (v - 0.5) * HW, r * K * Math.cos(a));
+      const uv: number[] = [];
+      const w: number[] = [];
+      for (let k = 0; k < 4; k++) {
+        const rel = a - (k * Math.PI) / 2;
+        const pv = profile.views[k];
+        // ракурс k смотрит на сторону с углом k·90°; точка видна в нём со смещением sin(rel) от оси
+        const u = (k + pv.cx[i] + pv.r[i] * 0.985 * Math.sin(rel)) / 4;
+        uv.push(u, v);
+        w.push(Math.pow(Math.max(0, Math.cos(rel)), 10)); // узкий переход: почти всегда виден один чёткий ракурс
+      }
+      const sum = w.reduce((s, x) => s + x, 0) || 1;
+      uvA.push(uv[0], uv[1], uv[2], uv[3]);
+      uvB.push(uv[4], uv[5], uv[6], uv[7]);
+      wts.push(...w.map((x) => x / sum));
     }
   }
-  for (let i = 0; i < rows.length - 1; i++)
+  for (let i = 0; i < N - 1; i++)
     for (let j = 0; j < J; j++) {
       const a = i * (J + 1) + j,
         b = a + J + 1;
@@ -58,59 +71,83 @@ function bodyGeometry(grow: number) {
     }
   const g = new THREE.BufferGeometry();
   g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
-  g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+  g.setAttribute("aUvA", new THREE.Float32BufferAttribute(uvA, 4));
+  g.setAttribute("aUvB", new THREE.Float32BufferAttribute(uvB, 4));
+  g.setAttribute("aW", new THREE.Float32BufferAttribute(wts, 4));
   g.setIndex(idx);
-  g.computeVertexNormals();
   return g;
 }
 
-// фото без освещения: свет уже «в снимке»
-const photoMat = (map: THREE.Texture | null, fade = false) =>
-  new THREE.MeshBasicMaterial({ map, alphaTest: 0.35, transparent: fade, opacity: fade ? 0 : 1, side: THREE.FrontSide });
+// фото без освещения (свет уже «в снимке»); смешиваем ракурсы с учётом прозрачности, затем два вкуса
+const VS = `
+attribute vec4 aUvA;
+attribute vec4 aUvB;
+attribute vec4 aW;
+varying vec4 vUvA;
+varying vec4 vUvB;
+varying vec4 vW;
+void main() {
+  vUvA = aUvA; vUvB = aUvB; vW = aW;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`;
+const FS = `
+uniform sampler2D uA;
+uniform sampler2D uB;
+uniform float uMix;
+varying vec4 vUvA;
+varying vec4 vUvB;
+varying vec4 vW;
+vec4 views(sampler2D t) {
+  vec4 c0 = texture2D(t, vUvA.xy), c1 = texture2D(t, vUvA.zw), c2 = texture2D(t, vUvB.xy), c3 = texture2D(t, vUvB.zw);
+  vec3 rgb = c0.rgb * c0.a * vW.x + c1.rgb * c1.a * vW.y + c2.rgb * c2.a * vW.z + c3.rgb * c3.a * vW.w;
+  float a = c0.a * vW.x + c1.a * vW.y + c2.a * vW.z + c3.a * vW.w;
+  return vec4(rgb, a);
+}
+void main() {
+  vec4 p = views(uA);
+  vec4 q = views(uB);
+  vec4 c = mix(p, q, uMix);
+  if (c.a < 0.5) discard;
+  gl_FragColor = vec4(c.rgb / c.a, 1.0);
+}`;
 
 export function createCones(canvas: HTMLCanvasElement, onReady?: () => void) {
   const mobile = window.matchMedia("(max-width: 1023px)").matches;
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 50);
   camera.position.set(0, 0, 9);
 
-  // фото вкусов: сначала текущий, остальные — когда первый экран уже показан
+  // атласы вкусов: сначала текущий, остальные — когда первый экран уже показан
   const loader = new THREE.TextureLoader();
   const tex: (THREE.Texture | null)[] = IDS.map(() => null);
   const pending: (Promise<THREE.Texture> | null)[] = IDS.map(() => null);
   const load = (i: number) =>
     (pending[i] ??= new Promise<THREE.Texture>((res) => {
-      loader.load(`${BASE}/cone/full-${IDS[i]}.webp`, (t) => {
-        t.colorSpace = THREE.SRGBColorSpace;
+      loader.load(`${BASE}/cone/atlas-${IDS[i]}.webp`, (t) => {
+        // цвета передаём как есть: шейдер свой, без пересчёта цветового пространства
+        t.colorSpace = THREE.NoColorSpace;
         t.anisotropy = renderer.capabilities.getMaxAnisotropy();
         tex[i] = t;
         res(t);
       });
     }));
 
-  const geo = bodyGeometry(1);
-  const geoNext = bodyGeometry(1.004);
+  const uniforms = { uA: { value: null as THREE.Texture | null }, uB: { value: null as THREE.Texture | null }, uMix: { value: 0 } };
+  const mat = new THREE.ShaderMaterial({ vertexShader: VS, fragmentShader: FS, uniforms, side: THREE.FrontSide });
   const root = new THREE.Group();
   const turn = new THREE.Group();
   root.add(turn);
-  const mat = photoMat(null);
-  const matNext = photoMat(null, true); // новое фото проступает поверх старого
-  const mesh = new THREE.Mesh(geo, mat);
-  const meshNext = new THREE.Mesh(geoNext, matNext);
-  meshNext.visible = false;
-  meshNext.renderOrder = 1;
-  turn.add(mesh, meshNext);
+  turn.add(new THREE.Mesh(bodyGeometry(), mat));
   scene.add(root);
   root.visible = false;
 
   let current = stage.flavor;
   load(current).then((t) => {
-    mat.map = t;
-    mat.needsUpdate = true;
+    uniforms.uA.value = t;
+    uniforms.uB.value = t;
     root.visible = true;
     onReady?.();
     setTimeout(() => IDS.forEach((_, i) => i !== current && load(i)), 300);
@@ -156,7 +193,6 @@ export function createCones(canvas: HTMLCanvasElement, onReady?: () => void) {
       const top = r.top + window.scrollY;
       P.hero = { ...POSES.mob.hero, y: ((top + r.height / 2) / vh) * 100, h: (r.height / vh) * 100 };
     }
-    // блок вкусов: место внутри закреплённого экрана — считаем от его верха (sticky стоит на top: 0)
     const fs = document.querySelector<HTMLElement>("[data-flv-spot]");
     if (fs && fs.offsetHeight > 0) {
       P.flv = { ...POSES.mob.flv, y: ((fs.offsetTop + fs.offsetHeight / 2) / vh) * 100, h: (fs.offsetHeight / vh) * 100 * 0.96 };
@@ -168,6 +204,7 @@ export function createCones(canvas: HTMLCanvasElement, onReady?: () => void) {
   let swap = 1,
     target = current,
     t = 0,
+    spin = 0,
     raf = 0,
     last = performance.now();
 
@@ -177,27 +214,23 @@ export function createCones(canvas: HTMLCanvasElement, onReady?: () => void) {
     last = now;
     t += dt;
 
-    // ---- смена вкуса: новое фото проступает поверх старого, цвет джема перетекает
+    // ---- смена вкуса: новый атлас проступает поверх старого, цвет джема перетекает
     if (stage.flavor !== target && swap >= 1 && tex[stage.flavor]) {
       target = stage.flavor;
       swap = 0;
-      matNext.map = tex[target];
-      matNext.needsUpdate = true;
-      meshNext.visible = true;
+      uniforms.uB.value = tex[target];
     } else if (stage.flavor !== target && !tex[stage.flavor]) load(stage.flavor);
     if (swap < 1) {
       swap = Math.min(1, swap + dt / (reduced ? 0.01 : 0.7));
-      matNext.opacity = swap * swap * (3 - 2 * swap);
+      uniforms.uMix.value = swap * swap * (3 - 2 * swap);
       if (swap >= 1) {
         current = target;
-        mat.map = tex[current];
-        mat.needsUpdate = true;
-        meshNext.visible = false;
-        matNext.opacity = 0;
+        uniforms.uA.value = tex[current];
+        uniforms.uMix.value = 0;
       }
     }
 
-    // ---- поза по разделам; рожок мягко покачивается, мышь добавляет поворот и наклон
+    // ---- поза по разделам; рожок медленно вращается, мышь добавляет поворот и наклон
     let p = P.hero;
     p = mix(p, P.pour, ease(stage.openIn));
     p = mix(p, P.flv, ease(stage.flvIn));
@@ -206,9 +239,8 @@ export function createCones(canvas: HTMLCanvasElement, onReady?: () => void) {
     turn.visible = stage.away < 0.999;
     ptr.sx += (ptr.x - ptr.sx) * (1 - Math.exp(-4 * dt));
     ptr.sy += (ptr.y - ptr.sy) * (1 - Math.exp(-4 * dt));
-    // сзади у фото нет настоящей стороны — поворот держим в пределах ~25°, чтобы бока не тянулись
-    const swing = reduced ? 0 : Math.sin(t * 0.45) * 0.22;
-    turn.rotation.y = swing + ptr.sx * 0.42;
+    if (!reduced) spin += dt * 0.35;
+    turn.rotation.y = spin + ptr.sx * 1.2;
     turn.rotation.x = ptr.sy * 0.25;
 
     renderer.render(scene, camera);
