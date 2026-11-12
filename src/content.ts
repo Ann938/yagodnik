@@ -81,8 +81,8 @@ export const flavors: Flavor[] = [
 
 export const nav = [
   { href: "#flavors", label: "Вкусы" },
-  { href: "#inside", label: "Из чего" },
-  { href: "#find", label: "Где найти" },
+  { href: "#inside", label: "Состав" },
+  { href: "#find", label: "Киоски" },
 ];
 
 export const hero = {
@@ -99,12 +99,12 @@ export const pour = {
   facts: [
     { num: "60%", text: "ягод в соусе, варим его каждое утро, а не открываем банку" },
     { num: "−6°", text: "температура подачи: пломбир мягкий, но держит форму" },
-    { num: "3", text: "витка на рожок" },
+    { num: "3+", text: "витка на рожок" },
   ],
 };
 
 export const inside = {
-  label: "Из чего",
+  label: "Состав",
   title: "Шесть ингредиентов",
   list: [
     "Сливки 33%",
@@ -127,7 +127,7 @@ export const ritual = {
 };
 
 export const find = {
-  label: "Где найти",
+  label: "Точки продаж",
   title: "Киоски",
   text: "Работаем с мая по сентябрь, а зимой — в торговых центрах.",
   price: "190 ₽",
@@ -139,7 +139,7 @@ export const footer = {
   credit: { text: "Фото ягод: Ivar Leidus, CC BY-SA 4.0", href: "https://commons.wikimedia.org/wiki/User:Iifar" },
   links: [
     { href: "#flavors", label: "Вкусы" },
-    { href: "#inside", label: "Из чего" },
-    { href: "#find", label: "Где найти" },
+    { href: "#inside", label: "Состав" },
+    { href: "#find", label: "Киоски" },
   ],
 };

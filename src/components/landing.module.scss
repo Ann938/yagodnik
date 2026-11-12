@@ -298,30 +298,6 @@
     height: u(56);
   }
 }
-.scrollHint {
-  position: absolute;
-  right: 0;
-  bottom: u(56);
-  @include type-label;
-  color: var(--muted);
-  &::after {
-    content: "";
-    display: block;
-    width: u(2);
-    height: u(36);
-    margin: u(12) auto 0;
-    background: currentColor;
-    animation: hint 2.2s var(--ease) infinite;
-    transform-origin: top;
-  }
-  @include mobile { display: none; }
-}
-@keyframes hint {
-  0% { transform: scaleY(0); }
-  50% { transform: scaleY(1); transform-origin: top; }
-  51% { transform-origin: bottom; }
-  100% { transform: scaleY(0); transform-origin: bottom; }
-}
 
 // ---------- 02 · заливаем ----------
 .pour {

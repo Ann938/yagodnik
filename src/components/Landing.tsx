@@ -238,7 +238,6 @@ export default function Landing() {
               </a>
             </div>
           </div>
-          <span className={s.scrollHint}>Листайте</span>
         </section>
 
         {/* ---------- 02 · заливаем ---------- */}
