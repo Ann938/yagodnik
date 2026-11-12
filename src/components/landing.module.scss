@@ -632,6 +632,12 @@
   .pourText,
   .flvText {
     width: 100%;
+    // текст проезжает над рожком при смене блоков — мягкая подложка держит его читаемым
+    padding: u(18) u(16);
+    border-radius: u(22);
+    background: color-mix(in srgb, var(--bg) 82%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
   }
   .pourText .h2 { font-size: u(26); margin-top: u(12); }
   .facts {
