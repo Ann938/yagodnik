@@ -10,6 +10,11 @@
   transition: opacity 0.4s;
   &[data-layer="back"] { z-index: 2; }
   &[data-layer="front"] { z-index: 4; }
+  // МВ: высота слоя не меняется, когда прячется адресная строка, — иначе ягоды (их top в %) прыгают
+  @include mobile {
+    bottom: auto;
+    height: 100lvh;
+  }
 }
 
 .fruit {

@@ -55,9 +55,8 @@ function bodyGeometry() {
         // ракурс k смотрит на сторону с углом k·90°; точка видна в нём со смещением sin(rel) от оси
         const u = (k + pv.cx[i] + pv.r[i] * 0.985 * Math.sin(rel)) / 4;
         uv.push(u, v);
-        // очень узкий переход: виден один чёткий ракурс; при широком смешении джем двух ракурсов
-        // ложится друг на друга вполсилы и выглядит полупрозрачным
-        w.push(Math.pow(Math.max(0, Math.cos(rel)), 48));
+        // мягкий переход между ракурсами; чтобы джем на стыке не выходил полупрозрачным, шейдер даёт ему приоритет
+        w.push(Math.pow(Math.max(0, Math.cos(rel)), 22));
       }
       const sum = w.reduce((s, x) => s + x, 0) || 1;
       uvA.push(uv[0], uv[1], uv[2], uv[3]);
@@ -99,10 +98,17 @@ uniform float uMix;
 varying vec4 vUvA;
 varying vec4 vUvB;
 varying vec4 vW;
+// «джемность»: у джема зелёного мало относительно красного/синего (пломбир ≈ 0.95, вафля ≈ 0.7, джем < 0.45)
+float jam(vec4 c) {
+  return 1.0 - smoothstep(0.42, 0.6, c.g / max(max(c.r, c.b), 0.02));
+}
+// на стыке двух ракурсов джем перевешивает пломбир и вафлю: капля остаётся плотной и своей формы, а не просвечивает
 vec4 views(sampler2D t) {
   vec4 c0 = texture2D(t, vUvA.xy), c1 = texture2D(t, vUvA.zw), c2 = texture2D(t, vUvB.xy), c3 = texture2D(t, vUvB.zw);
-  vec3 rgb = c0.rgb * c0.a * vW.x + c1.rgb * c1.a * vW.y + c2.rgb * c2.a * vW.z + c3.rgb * c3.a * vW.w;
-  float a = c0.a * vW.x + c1.a * vW.y + c2.a * vW.z + c3.a * vW.w;
+  vec4 w = vW * (1.0 + 5.0 * vec4(jam(c0), jam(c1), jam(c2), jam(c3)));
+  w /= max(w.x + w.y + w.z + w.w, 1e-4);
+  vec3 rgb = c0.rgb * c0.a * w.x + c1.rgb * c1.a * w.y + c2.rgb * c2.a * w.z + c3.rgb * c3.a * w.w;
+  float a = c0.a * w.x + c1.a * w.y + c2.a * w.z + c3.a * w.w;
   return vec4(rgb, a);
 }
 void main() {

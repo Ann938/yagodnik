@@ -29,18 +29,24 @@ export default function Fruits({ flavor, layer }: { flavor: number; layer: "back
     const el = root.current;
     if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     let raf = 0;
-    const st = { mx: 0, my: 0, tx: 0, ty: 0 };
+    const st = { mx: 0, my: 0, tx: 0, ty: 0, sc: -1 };
+    let last = performance.now();
     const onMove = (e: PointerEvent) => {
       st.tx = e.clientX / window.innerWidth - 0.5;
       st.ty = e.clientY / window.innerHeight - 0.5;
     };
-    const tick = () => {
-      st.mx += (st.tx - st.mx) * 0.06;
-      st.my += (st.ty - st.my) * 0.06;
+    const tick = (now: number) => {
+      const dt = Math.min((now - last) / 1000, 0.05);
+      last = now;
+      const k = 1 - Math.exp(-4 * dt);
+      st.mx += (st.tx - st.mx) * k;
+      st.my += (st.ty - st.my) * k;
+      // покачивание от скролла сглажено: на телефоне нативная прокрутка рывками (инерция, адресная строка)
       const sc = window.scrollY / Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+      st.sc = st.sc < 0 ? sc : st.sc + (sc - st.sc) * (1 - Math.exp(-5 * dt));
       el.style.setProperty("--px", st.mx.toFixed(4));
       el.style.setProperty("--py", st.my.toFixed(4));
-      el.style.setProperty("--sc", sc.toFixed(4));
+      el.style.setProperty("--sc", st.sc.toFixed(4));
       raf = requestAnimationFrame(tick);
     };
     window.addEventListener("pointermove", onMove, { passive: true });

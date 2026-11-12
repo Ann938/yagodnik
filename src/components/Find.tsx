@@ -38,7 +38,7 @@ const palette = (): Palette => {
 };
 
 // Блок «Киоски»: заголовок и переключатель городов сверху, ниже — настоящая карта (OpenStreetMap) в рамке, белая панель со списком.
-// Карта грузится, только когда блок близко к экрану; страницу колесо не перехватывает (масштаб — Ctrl + колесо или кнопки).
+// Карта грузится, только когда блок близко к экрану; страницу колесо не перехватывает (масштаб — кнопки или два пальца).
 export default function Find() {
   const [ci, setCi] = useState(0);
   const [hot, setHot] = useState<number | null>(null);
@@ -108,17 +108,14 @@ export default function Find() {
           center: [cityRef.current.kiosks[0].lng, cityRef.current.kiosks[0].lat],
           zoom: 12,
           attributionControl: false,
-          cooperativeGestures: true,
+          // без подсказок поверх карты: колесо и один палец листают страницу, карту двигают мышью,
+          // приближают кнопками «+ / −» или двумя пальцами
+          scrollZoom: false,
+          dragPan: !window.matchMedia("(pointer: coarse)").matches,
           dragRotate: false,
           pitchWithRotate: false,
           fadeDuration: reduced ? 0 : 300,
-          locale: {
-            "CooperativeGesturesHandler.WindowsHelpText": "Чтобы приблизить карту, зажмите Ctrl и крутите колёсико",
-            "CooperativeGesturesHandler.MacHelpText": "Чтобы приблизить карту, зажмите ⌘ и крутите колёсико",
-            "CooperativeGesturesHandler.MobileHelpText": "Двигайте карту двумя пальцами",
-            "NavigationControl.ZoomIn": "Приблизить",
-            "NavigationControl.ZoomOut": "Отдалить",
-          },
+          locale: { "NavigationControl.ZoomIn": "Приблизить", "NavigationControl.ZoomOut": "Отдалить" },
         });
         map.touchZoomRotate.disableRotation();
         map.addControl(new ml.NavigationControl({ showCompass: false }), "bottom-right");
@@ -225,6 +222,9 @@ export default function Find() {
         </div>
 
         <div className={s.panel}>
+          <h3 className={s.panelTitle} key={`t-${city.id}`}>
+            {city.name}
+          </h3>
           <ol className={s.list} key={city.id}>
             {city.kiosks.map((k, i) => (
               <li key={k.name} style={{ ["--i" as string]: i }}>

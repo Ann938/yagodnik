@@ -115,7 +115,7 @@
   z-index: 0;
   @include mobile {
     position: relative;
-    height: u(380);
+    height: u(300);
   }
 }
 .map {
@@ -136,12 +136,6 @@
   }
   :global(.maplibregl-ctrl-bottom-right) { margin: 0 u(14) u(14) 0; }
   :global(.maplibregl-ctrl-attrib) { font-size: 11px; }
-  :global(.maplibregl-cooperative-gesture-screen) {
-    font-family: var(--font-sans), system-ui, sans-serif;
-    font-weight: 600;
-    font-size: 18px;
-    background: color-mix(in srgb, var(--ink) 55%, transparent);
-  }
 }
 
 // метка: логотип в белой капле с подписью; падает при смене города
@@ -238,8 +232,12 @@
     padding: u(22) u(18) u(20);
   }
 }
+.panelTitle {
+  @include type-h3;
+  animation: rowIn 0.6s var(--ease) both;
+}
 .list {
-  margin-top: u(-4);
+  margin-top: u(14);
   display: grid;
   gap: u(4);
   li {
