@@ -78,7 +78,8 @@ function useFlavorWave() {
         onComplete: () => {
           if (t !== token.current) return;
           apply(i);
-          gsap.set(el, { autoAlpha: 0 });
+          // волна растворяется, а не пропадает: свечение под рожком проступает мягко
+          gsap.to(el, { autoAlpha: 0, duration: 0.8, ease: "power1.out" });
         },
       },
     );
