@@ -72,12 +72,18 @@ export default function Find() {
   const declutter = () => {
     const m = mapRef.current;
     if (!m) return;
-    const shown: { x: number; y: number }[] = [];
-    markers.current.forEach((mk) => {
-      const pt = m.project(mk.getLngLat());
-      const clash = shown.some((q) => Math.abs(q.x - pt.x) < 150 && Math.abs(q.y - pt.y) < 104);
+    const shown: { x: number; y: number; w: number }[] = [];
+    // ширина подписи — по длине названия (кегль 14, жирный)
+    const lw = (mk: Marker) => (mk.getElement().getAttribute("aria-label")?.replace(" на Яндекс Картах", "").length ?? 10) * 8.4 + 20;
+    const pts = markers.current.map((mk) => m.project(mk.getLngLat()));
+    markers.current.forEach((mk, i) => {
+      const pt = pts[i];
+      // подпись под меткой: мешает соседняя метка, стоящая на месте подписи, или уже показанная подпись рядом
+      const under = pts.some((q, j) => j !== i && Math.abs(q.x - pt.x) < 110 && q.y - pt.y > -10 && q.y - pt.y < 104);
+      const w = lw(mk);
+      const clash = under || shown.some((q) => Math.abs(q.x - pt.x) < (q.w + w) / 2 + 6 && Math.abs(q.y - pt.y) < 40);
       mk.getElement().toggleAttribute("data-quiet", clash);
-      if (!clash) shown.push(pt);
+      if (!clash) shown.push({ x: pt.x, y: pt.y, w });
     });
   };
 
