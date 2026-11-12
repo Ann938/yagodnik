@@ -15,7 +15,8 @@
 .fruit {
   --pw: calc(var(--w) * 1vw);
   position: absolute;
-  left: calc(var(--x) * 1%);
+  // в блоке вкусов рожок уходит влево — ягоды зеркально переезжают вслед за ним
+  left: calc((var(--x) + var(--flvIn, 0) * (100 - 2 * var(--x))) * 1%);
   top: calc(var(--y) * 1%);
   width: var(--pw);
   height: calc(var(--pw) * var(--ar));

@@ -21,16 +21,18 @@ function Arrow() {
   );
 }
 
-// знак: рожок с завитком
+// знак: ягода из зёрнышек с двумя листиками — натуральное и фруктовое; ягода окрашена в цвет вкуса
 function Logo() {
   return (
     <span className={s.logo}>
       <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden>
-        <rect width="32" height="32" rx="9" fill="var(--accent)" />
-        <path d="M10.5 15h11L16 27z" fill="var(--cream)" />
-        <path d="M9.5 15c0-2.6 2-3.6 3.6-3.6 0-2.6 1.6-4.4 4.2-4.4 1.6 0 2.4.9 2.4.9-.9.4-1.4 1.2-1.3 2 2.6 0 4.1 1.6 4.1 4.1z" fill="var(--cream)" />
+        <g fill="var(--accent)"><circle cx="12" cy="13.2" r="2.45" /><circle cx="16" cy="12.6" r="2.45" /><circle cx="20" cy="13.2" r="2.45" /><circle cx="10" cy="17.2" r="2.45" /><circle cx="14" cy="16.8" r="2.45" /><circle cx="18" cy="16.8" r="2.45" /><circle cx="22" cy="17.2" r="2.45" /><circle cx="12" cy="21" r="2.45" /><circle cx="16" cy="20.8" r="2.45" /><circle cx="20" cy="21" r="2.45" /><circle cx="14" cy="24.6" r="2.45" /><circle cx="18" cy="24.6" r="2.45" /><circle cx="16" cy="28" r="2.45" /></g>
+        <g fill="#fff" opacity=".55"><circle cx="11.2" cy="12.4" r="0.7" /><circle cx="15.2" cy="11.8" r="0.7" /><circle cx="19.2" cy="12.4" r="0.7" /><circle cx="9.2" cy="16.4" r="0.7" /><circle cx="13.2" cy="16.0" r="0.7" /><circle cx="17.2" cy="16.0" r="0.7" /><circle cx="21.2" cy="16.4" r="0.7" /><circle cx="11.2" cy="20.2" r="0.7" /><circle cx="15.2" cy="20.0" r="0.7" /><circle cx="19.2" cy="20.2" r="0.7" /><circle cx="13.2" cy="23.8" r="0.7" /><circle cx="17.2" cy="23.8" r="0.7" /><circle cx="15.2" cy="27.2" r="0.7" /></g>
+        <path d="M16 10.2C14.8 6.6 11.8 5 8.4 5.6c.6 3.6 3.6 5.2 7.6 4.6z" fill="#4f8f3a" />
+        <path d="M16 10.2c1.2-3.8 4.3-5.4 7.8-4.7-.7 3.7-3.8 5.4-7.8 4.7z" fill="#6fae4f" />
+        <path d="M16 10.4V7" stroke="#3f7a2e" strokeWidth="1.2" strokeLinecap="round" />
       </svg>
-      Сугроб
+      Ягодник
     </span>
   );
 }
@@ -104,7 +106,7 @@ export default function Landing() {
       });
       st("#flavors", "top bottom", "top top", (p) => {
         stage.flvIn = p;
-        css("--flvIn", p * (1 - (stage.away || 0)));
+        css("--flvIn", p * (1 - stage.away));
       });
       st("#flavors", "top top", "bottom bottom", (p) => {
         choose(Math.min(2, Math.floor(p * 3)));
@@ -113,6 +115,7 @@ export default function Landing() {
       st("#inside", "top bottom", "top 15%", (p) => {
         stage.away = p;
         css("--away", p);
+        css("--flvIn", stage.flvIn * (1 - p)); // ягоды возвращаются на правую сторону к финалу
       });
       st("#find", "top bottom", "top 10%", (p) => {
         stage.buyIn = p;
@@ -158,7 +161,7 @@ export default function Landing() {
       <Fruits flavor={flavor} layer="front" />
 
       <header className={s.header} data-scrolled={scrolled || undefined}>
-        <a href="#top" aria-label="Сугроб — наверх">
+        <a href="#top" aria-label="Ягодник — наверх">
           <Logo />
         </a>
         <nav className={s.nav}>
