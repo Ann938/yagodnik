@@ -1,25 +1,31 @@
-# Шаг 1 (в окружении с opencv-contrib): вырезаем 4 ракурса из листа, чистим фон, увеличиваем EDSR x4 → x2.
-# python views.py <лист.png> <EDSR_x4.pb> <out dir>
+# Шаг 1 (в окружении с opencv-contrib): из листов «Четыре рожка…» (по листу на вкус, одинаковый кадр)
+# вырезаем 4 ракурса ОДНИМИ рамками — вафля и пломбир совпадают пиксель в пиксель, отличается только джем;
+# чистим фон (на листах вокруг рожков крапинки), увеличиваем EDSR x4 → x2.
+# python cone-views.py <EDSR_x4.pb> <out dir> strawberry=<лист.png> blackberry=<лист.png> raspberry=<лист.png>
 import sys, os, numpy as np, cv2
 from PIL import Image
 
-sheet, model, out = sys.argv[1:4]
-os.makedirs(out, exist_ok=True)
-a = np.array(Image.open(sheet).convert("RGBA"))
-al = a[:, :, 3]
-col = (al > 128).sum(0)
-empty = col < 3
-# границы ракурсов — по пустым столбцам
+model, out = sys.argv[1:3]
+sheets = dict(a.split("=", 1) for a in sys.argv[3:])
+arr = {k: np.array(Image.open(v).convert("RGBA")) for k, v in sheets.items()}
+H = max(a.shape[0] for a in arr.values())
+W = max(a.shape[1] for a in arr.values())
+for k, a in arr.items():
+    pad = np.zeros((H, W, 4), np.uint8)
+    pad[: a.shape[0], : a.shape[1]] = a
+    arr[k] = pad
+union = np.max(np.stack([(a[:, :, 3] > 128) for a in arr.values()]), 0)
+col = union.sum(0)
 spans, inside, start = [], False, 0
-for x in range(len(col)):
-    if not empty[x] and not inside:
+for x in range(W):
+    if col[x] >= 3 and not inside:
         inside, start = True, x
-    elif empty[x] and inside:
+    elif col[x] < 3 and inside:
         inside = False
         if x - start > 80:
             spans.append((start, x))
 if inside:
-    spans.append((start, len(col)))
+    spans.append((start, W))
 print("views", spans)
 
 sr = cv2.dnn_superres.DnnSuperResImpl_create()
@@ -27,35 +33,42 @@ sr.readModel(model)
 sr.setModel("edsr", 4)
 
 def upscale(bgr):
-    H, W = bgr.shape[:2]
+    h, w = bgr.shape[:2]
     T, O = 96, 8
-    acc = np.zeros((H * 4, W * 4, 3), np.float32)
-    ws = np.zeros((H * 4, W * 4, 1), np.float32)
-    for y in range(0, H, T):
-        for x in range(0, W, T):
-            ya, xa, yb, xb = max(0, y - O), max(0, x - O), min(H, y + T + O), min(W, x + T + O)
+    acc = np.zeros((h * 4, w * 4, 3), np.float32)
+    ws = np.zeros((h * 4, w * 4, 1), np.float32)
+    for y in range(0, h, T):
+        for x in range(0, w, T):
+            ya, xa, yb, xb = max(0, y - O), max(0, x - O), min(h, y + T + O), min(w, x + T + O)
             tile = sr.upsample(bgr[ya:yb, xa:xb]).astype(np.float32)
             th, tw = tile.shape[:2]
             wy = np.minimum(np.arange(th) + 1, th - np.arange(th))[:, None]
             wx = np.minimum(np.arange(tw) + 1, tw - np.arange(tw))[None, :]
-            w = np.minimum(np.minimum(wy, 32), np.minimum(wx, 32)).astype(np.float32)[:, :, None]
-            acc[ya * 4 : yb * 4, xa * 4 : xb * 4] += tile * w
-            ws[ya * 4 : yb * 4, xa * 4 : xb * 4] += w
+            w_ = np.minimum(np.minimum(wy, 32), np.minimum(wx, 32)).astype(np.float32)[:, :, None]
+            acc[ya * 4 : yb * 4, xa * 4 : xb * 4] += tile * w_
+            ws[ya * 4 : yb * 4, xa * 4 : xb * 4] += w_
     return np.clip(acc / np.maximum(ws, 1e-6), 0, 255).astype(np.uint8)
 
-for k, (x0, x1) in enumerate(spans):
-    v = a[:, max(0, x0 - 4) : x1 + 4].copy()
-    m = (v[:, :, 3] > 128).astype(np.uint8)
-    # только сам рожок: крупнейшая связная область (вокруг на листе — красные крапинки)
+def clean_alpha(al):
+    m = (al > 128).astype(np.uint8)
     n, lab, st, _ = cv2.connectedComponentsWithStats(m, 8)
     big = (lab == 1 + np.argmax(st[1:, cv2.CC_STAT_AREA])).astype(np.uint8)
-    big = cv2.dilate(big, np.ones((5, 5), np.uint8))
-    v[:, :, 3] = (v[:, :, 3] * big).astype(np.uint8)
-    ys, xs = np.where(v[:, :, 3] > 20)
-    v = v[ys.min() : ys.max() + 1, xs.min() : xs.max() + 1]
-    bgr = cv2.cvtColor(v[:, :, :3], cv2.COLOR_RGB2BGR)
-    up = upscale(bgr)
-    up = cv2.resize(up, (v.shape[1] * 2, v.shape[0] * 2), interpolation=cv2.INTER_AREA)
-    al2 = cv2.resize(v[:, :, 3], (v.shape[1] * 2, v.shape[0] * 2), interpolation=cv2.INTER_CUBIC)
-    Image.fromarray(np.dstack([cv2.cvtColor(up, cv2.COLOR_BGR2RGB), al2])).save(f"{out}/view{k}.png")
-    print("view", k, v.shape, "->", up.shape)
+    return (al * cv2.dilate(big, np.ones((5, 5), np.uint8))).astype(np.uint8)
+
+for i, (x0, x1) in enumerate(spans):
+    xa, xb = max(0, x0 - 4), min(W, x1 + 4)
+    # общая рамка ракурса по всем вкусам
+    masks = {k: clean_alpha(a[:, xa:xb, 3]) for k, a in arr.items()}
+    um = np.max(np.stack([m > 20 for m in masks.values()]), 0)
+    ys, xs = np.where(um)
+    y0, y1, c0, c1 = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
+    for k, a in arr.items():
+        v = a[:, xa:xb].copy()
+        v[:, :, 3] = masks[k]
+        v = v[y0:y1, c0:c1]
+        up = upscale(cv2.cvtColor(v[:, :, :3], cv2.COLOR_RGB2BGR))
+        up = cv2.resize(up, (v.shape[1] * 2, v.shape[0] * 2), interpolation=cv2.INTER_AREA)
+        al2 = cv2.resize(v[:, :, 3], (v.shape[1] * 2, v.shape[0] * 2), interpolation=cv2.INTER_CUBIC)
+        os.makedirs(f"{out}/{k}", exist_ok=True)
+        Image.fromarray(np.dstack([cv2.cvtColor(up, cv2.COLOR_BGR2RGB), al2])).save(f"{out}/{k}/view{i}.png")
+        print(k, "view", i, v.shape, flush=True)
