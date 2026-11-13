@@ -241,13 +241,13 @@ export function createCones(canvas: HTMLCanvasElement, onReady?: () => void) {
     p = mix(p, P.pour, ease(stage.openIn));
     p = mix(p, P.flv, ease(stage.flvIn));
     p = mix(p, P.away, ease(stage.away));
-    // рожок не поворачивается — только плавно ходит вправо-влево (и чуть вверх-вниз), мышь слегка сдвигает его
-    const drift = reduced ? 0 : Math.sin(t * 0.7) * 1.1 + ptr.sx * 1.6;
-    place({ ...p, x: p.x + drift, y: p.y + (reduced ? 0 : Math.sin(t * 0.9) * 0.6) });
+    place({ ...p, y: p.y + (reduced ? 0 : Math.sin(t * 0.9) * 0.6) });
     turn.visible = stage.away < 0.999;
     ptr.sx += (ptr.x - ptr.sx) * (1 - Math.exp(-4 * dt));
     ptr.sy += (ptr.y - ptr.sy) * (1 - Math.exp(-4 * dt));
-    turn.rotation.set(0, 0, 0); // всегда лицом к зрителю — снимок 0
+    // рожок не прокручивается: лицом к зрителю (снимок 0), только чуть поворачивается вправо-влево (±13°);
+    // в этих пределах весь видимый бок — из одного снимка, без швов
+    turn.rotation.set(0, reduced ? 0 : Math.sin(t * 0.6) * 0.22, 0);
     // какой снимок смотрит на зрителя: зритель в координатах рожка — под углом −rotation.y
     const cam = [0, 1, 2, 3].map((k) => Math.pow(Math.max(0, Math.cos(-turn.rotation.y - (k * Math.PI) / 2)), 24));
     const cs = cam[0] + cam[1] + cam[2] + cam[3];
