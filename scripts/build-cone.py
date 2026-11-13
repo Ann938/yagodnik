@@ -1,11 +1,12 @@
 # Рожок для 3D по листам пользователя «Четыре рожка с … джемом» (по листу на вкус, одинаковый кадр).
 # Вход — ракурсы <src>/<вкус>/view0..3.png (вырезаны одними рамками и увеличены: scripts/cone-views.py), выход:
 #   public/cone/atlas-<вкус>.webp — 4 ракурса в ряд (джем — как на листе этого вкуса, без перекраски);
+#   public/cone/front-<вкус>.webp — лицо рожка (view0) в двойном разрешении, если есть <вкус>/front.png;
 #   src/three/profile.json — общий профиль тела вращения + для каждого ракурса центр и полуширина каждой строки.
 # Форма одна на все вкусы (по объединённому силуэту): внутри неё фото сплошное, капли, свисающие сбоку за край
 # вафли, плавно срезаны, пустоты закрашены соседними цветами — при повороте не бывает дыр, при смене вкуса силуэт не дёргается.
 # python -I scripts/build-cone.py <папка> public/cone src/three/profile.json <превью>
-import sys, json, numpy as np, cv2
+import sys, os, json, numpy as np, cv2
 from PIL import Image
 
 src, out_dir, prof_path, dbg = sys.argv[1:5]
@@ -75,6 +76,23 @@ for k in range(4):
         t[:, off : off + W, :3] = rgb
         t[:, off : off + W, 3] = alpha
         tiles[n].append(t)
+        # лицо рожка (view0) — отдельно в двойном разрешении (EDSR x4): его видно почти всё время
+        if k == 0 and os.path.exists(f"{src}/{n}/front.png"):
+            f = np.array(Image.open(f"{src}/{n}/front.png").convert("RGBA"))
+            H2, W2 = TH * 2, W * 2
+            f = np.array(Image.fromarray(f).resize((round(f.shape[1] * H2 / f.shape[0]), H2), Image.LANCZOS))
+            fp = np.zeros((H2, W2, 4), np.uint8)
+            fp[:, : min(W2, f.shape[1])] = f[:, :W2]
+            fill2 = cv2.resize(fill.astype(np.float32), (W2, H2), interpolation=cv2.INTER_LINEAR) > 0.5
+            fb = cv2.cvtColor(fp[:, :, :3], cv2.COLOR_RGB2BGR)
+            holes2 = ((fp[:, :, 3] < 230) | ~fill2).astype(np.uint8)
+            rgb2 = cv2.cvtColor(cv2.inpaint(fb, holes2, 7, cv2.INPAINT_TELEA), cv2.COLOR_BGR2RGB)
+            al2 = np.clip(cv2.GaussianBlur(fill2.astype(np.float32), (5, 5), 0) * 255, 0, 255).astype(np.uint8)
+            ft = np.zeros((H2, TW * 2, 4), np.uint8)
+            ft[:, off * 2 : off * 2 + W2, :3] = rgb2
+            ft[:, off * 2 : off * 2 + W2, 3] = al2
+            Image.fromarray(ft).save(f"{out_dir}/front-{n}.webp", "WEBP", quality=90, method=6)
+            print("front", n, ft.shape, flush=True)
     N = 220
     l, r = [], []
     for i in range(N + 1):

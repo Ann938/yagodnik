@@ -95,19 +95,25 @@ void main() {
 const FS = `
 uniform sampler2D uA;
 uniform sampler2D uB;
+uniform sampler2D uFA;
+uniform sampler2D uFB;
+uniform float uHA;
+uniform float uHB;
 uniform float uMix;
 varying vec4 vUvA;
 varying vec4 vUvB;
 varying vec4 vW;
-vec4 views(sampler2D t) {
-  vec4 c0 = texture2D(t, vUvA.xy), c1 = texture2D(t, vUvA.zw), c2 = texture2D(t, vUvB.xy), c3 = texture2D(t, vUvB.zw);
+// лицо (ракурс 0) берём из отдельной текстуры двойного разрешения, когда она загружена
+vec4 views(sampler2D t, sampler2D f, float hasF) {
+  vec4 c0 = hasF > 0.5 ? texture2D(f, vec2(vUvA.x * 4.0, vUvA.y)) : texture2D(t, vUvA.xy);
+  vec4 c1 = texture2D(t, vUvA.zw), c2 = texture2D(t, vUvB.xy), c3 = texture2D(t, vUvB.zw);
   vec3 rgb = c0.rgb * c0.a * vW.x + c1.rgb * c1.a * vW.y + c2.rgb * c2.a * vW.z + c3.rgb * c3.a * vW.w;
   float a = c0.a * vW.x + c1.a * vW.y + c2.a * vW.z + c3.a * vW.w;
   return vec4(rgb, a);
 }
 void main() {
-  vec4 p = views(uA);
-  vec4 q = views(uB);
+  vec4 p = views(uA, uFA, uHA);
+  vec4 q = views(uB, uFB, uHB);
   vec4 c = mix(p, q, uMix);
   if (c.a < 0.5) discard;
   gl_FragColor = vec4(c.rgb / c.a, 1.0);
@@ -137,9 +143,24 @@ export function createCones(canvas: HTMLCanvasElement, onReady?: () => void) {
       });
     }));
 
+  // лицо рожка в двойном разрешении — только на ДВ (на телефоне рожок мельче, хватает атласа), после первого экрана
+  const front: (THREE.Texture | null)[] = IDS.map(() => null);
+  const loadFront = (i: number) => {
+    if (mobile || front[i]) return;
+    loader.load(`${BASE}/cone/front-${IDS[i]}.webp`, (t) => {
+      t.colorSpace = THREE.NoColorSpace;
+      t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      front[i] = t;
+    });
+  };
+
   const uniforms = {
     uA: { value: null as THREE.Texture | null },
     uB: { value: null as THREE.Texture | null },
+    uFA: { value: null as THREE.Texture | null },
+    uFB: { value: null as THREE.Texture | null },
+    uHA: { value: 0 },
+    uHB: { value: 0 },
     uMix: { value: 0 },
     uCam: { value: new THREE.Vector4(1, 0, 0, 0) },
   };
@@ -157,7 +178,11 @@ export function createCones(canvas: HTMLCanvasElement, onReady?: () => void) {
     uniforms.uB.value = t;
     root.visible = true;
     onReady?.();
-    setTimeout(() => IDS.forEach((_, i) => i !== current && load(i)), 300);
+    setTimeout(() => {
+      loadFront(current);
+      IDS.forEach((_, i) => i !== current && load(i));
+      setTimeout(() => IDS.forEach((_, i) => loadFront(i)), 1500);
+    }, 300);
   });
 
   const ptr = { x: 0, y: 0, sx: 0, sy: 0 };
@@ -252,6 +277,14 @@ export function createCones(canvas: HTMLCanvasElement, onReady?: () => void) {
     const cam = [0, 1, 2, 3].map((k) => Math.pow(Math.max(0, Math.cos(-turn.rotation.y - (k * Math.PI) / 2)), 24));
     const cs = cam[0] + cam[1] + cam[2] + cam[3];
     uniforms.uCam.value.set(cam[0] / cs, cam[1] / cs, cam[2] / cs, cam[3] / cs);
+
+    // лицо высокого разрешения для обоих смешиваемых вкусов (пока не загружено — берётся из атласа)
+    const fa = front[current],
+      fb = front[target];
+    uniforms.uFA.value = fa ?? uniforms.uA.value;
+    uniforms.uHA.value = fa ? 1 : 0;
+    uniforms.uFB.value = fb ?? uniforms.uB.value;
+    uniforms.uHB.value = fb ? 1 : 0;
 
     renderer.render(scene, camera);
   }

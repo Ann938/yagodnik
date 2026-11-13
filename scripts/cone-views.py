@@ -1,12 +1,15 @@
 # Шаг 1 (в окружении с opencv-contrib): из листов «Четыре рожка…» (по листу на вкус, одинаковый кадр)
 # вырезаем 4 ракурса ОДНИМИ рамками — вафля и пломбир совпадают пиксель в пиксель, отличается только джем;
 # чистим фон (на листах вокруг рожков крапинки), увеличиваем EDSR x4 → x2.
-# python cone-views.py <EDSR_x4.pb> <out dir> strawberry=<лист.png> blackberry=<лист.png> raspberry=<лист.png>
+# python cone-views.py <EDSR_x4.pb> <out dir> strawberry=<лист.png> blackberry=<лист.png> raspberry=<лист.png> [--front]
+# --front: только передний ракурс (view0) в полном x4 → <вкус>/front.png — для чёткой текстуры лица рожка.
 import sys, os, numpy as np, cv2
 from PIL import Image
 
-model, out = sys.argv[1:3]
-sheets = dict(a.split("=", 1) for a in sys.argv[3:])
+args = [a for a in sys.argv[1:] if a != "--front"]
+FRONT = "--front" in sys.argv
+model, out = args[:2]
+sheets = dict(a.split("=", 1) for a in args[2:])
 arr = {k: np.array(Image.open(v).convert("RGBA")) for k, v in sheets.items()}
 H = max(a.shape[0] for a in arr.values())
 W = max(a.shape[1] for a in arr.values())
@@ -56,6 +59,8 @@ def clean_alpha(al):
     return (al * cv2.dilate(big, np.ones((5, 5), np.uint8))).astype(np.uint8)
 
 for i, (x0, x1) in enumerate(spans):
+    if FRONT and i != 0:
+        continue
     xa, xb = max(0, x0 - 4), min(W, x1 + 4)
     # общая рамка ракурса по всем вкусам
     masks = {k: clean_alpha(a[:, xa:xb, 3]) for k, a in arr.items()}
@@ -67,8 +72,11 @@ for i, (x0, x1) in enumerate(spans):
         v[:, :, 3] = masks[k]
         v = v[y0:y1, c0:c1]
         up = upscale(cv2.cvtColor(v[:, :, :3], cv2.COLOR_RGB2BGR))
-        up = cv2.resize(up, (v.shape[1] * 2, v.shape[0] * 2), interpolation=cv2.INTER_AREA)
-        al2 = cv2.resize(v[:, :, 3], (v.shape[1] * 2, v.shape[0] * 2), interpolation=cv2.INTER_CUBIC)
+        sc = 4 if FRONT else 2
+        if sc != 4:
+            up = cv2.resize(up, (v.shape[1] * sc, v.shape[0] * sc), interpolation=cv2.INTER_AREA)
+        al2 = cv2.resize(v[:, :, 3], (v.shape[1] * sc, v.shape[0] * sc), interpolation=cv2.INTER_CUBIC)
         os.makedirs(f"{out}/{k}", exist_ok=True)
-        Image.fromarray(np.dstack([cv2.cvtColor(up, cv2.COLOR_BGR2RGB), al2])).save(f"{out}/{k}/view{i}.png")
+        name = "front" if FRONT else f"view{i}"
+        Image.fromarray(np.dstack([cv2.cvtColor(up, cv2.COLOR_BGR2RGB), al2])).save(f"{out}/{k}/{name}.png")
         print(k, "view", i, v.shape, flush=True)
