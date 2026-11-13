@@ -53,6 +53,30 @@ def body_fill(A, ref_rgb):
             fill[y, a0 : a1 + 1] = 1
     return fill, rim
 
+# Одиночные капли джема, которые при повороте выглядят оторванными: (ракурс, x0, y0, x1, y1) в пикселях плитки атласа.
+# Внутри рамки джем закрашиваем пломбиром вокруг (Telea), у всех вкусов и в лице 2x.
+DROPS = [(0, 536, 456, 614, 540)]
+
+def erase_jam(img, box):
+    """Каплю закрашиваем пломбиром вокруг (вместе с розоватым ореолом); силуэт не трогаем — иначе в витке выемка."""
+    x0, y0, x1, y1 = box
+    sub = img[y0:y1, x0:x1]
+    f = sub[:, :, :3].astype(np.float32)
+    jam = (f[:, :, 1] / np.maximum(np.maximum(f[:, :, 0], f[:, :, 2]), 1) < 0.62) & (sub[:, :, 3] > 60)
+    n, lab, st, _ = cv2.connectedComponentsWithStats(jam.astype(np.uint8), 8)
+    drop = np.zeros(jam.shape, np.uint8)
+    if n > 1:
+        drop[lab == 1 + np.argmax(st[1:, cv2.CC_STAT_AREA])] = 1
+    k = max(9, (x1 - x0) // 7) | 1
+    drop = cv2.dilate(drop, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k)))
+    # источники для заливки — только непрозрачный пломбир, не фон
+    src = np.ascontiguousarray(sub[:, :, :3]).copy()
+    bgr = cv2.cvtColor(src, cv2.COLOR_RGB2BGR)
+    holes = (drop | (sub[:, :, 3] < 128)).astype(np.uint8)
+    rgb = cv2.cvtColor(cv2.inpaint(bgr, holes, k, cv2.INPAINT_TELEA), cv2.COLOR_BGR2RGB)
+    m = drop.astype(bool)
+    sub[:, :, :3][m] = rgb[m]
+
 tiles = {n: [] for n in NAMES}
 prof_views = []
 for k in range(4):
@@ -75,6 +99,9 @@ for k in range(4):
         t = np.zeros((TH, TW, 4), np.uint8)
         t[:, off : off + W, :3] = rgb
         t[:, off : off + W, 3] = alpha
+        for dk, *box in DROPS:
+            if dk == k:
+                erase_jam(t, box)
         tiles[n].append(t)
         # лицо рожка (view0) — отдельно в двойном разрешении (EDSR x4): его видно почти всё время
         if k == 0 and os.path.exists(f"{src}/{n}/front.png"):
@@ -91,6 +118,9 @@ for k in range(4):
             ft = np.zeros((H2, TW * 2, 4), np.uint8)
             ft[:, off * 2 : off * 2 + W2, :3] = rgb2
             ft[:, off * 2 : off * 2 + W2, 3] = al2
+            for dk, *box in DROPS:
+                if dk == 0:
+                    erase_jam(ft, [c * 2 for c in box])
             Image.fromarray(ft).save(f"{out_dir}/front-{n}.webp", "WEBP", quality=90, method=6)
             print("front", n, ft.shape, flush=True)
     N = 220
