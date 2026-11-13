@@ -1,5 +1,5 @@
-// Рожок в 3D по четырём ракурсам (листы пользователя «Четыре рожка…»): тело вращения по общему профилю,
-// видимый бок — из снимка, ближайшего к зрителю (0°, 90°, 180°, 270°); при повороте снимки сменяются растворением.
+// Рожок в 3D по четырём ракурсам (лист пользователя «Четыре ракурса…»): тело вращения по общему профилю,
+// на каждую сторону ложится ракурс, который на неё смотрит (0°, 90°, 180°, 270°), между соседними — плавный переход.
 // Поэтому рожок можно поворачивать широко: сзади настоящая сторона, а не зеркальная копия передней.
 // Вкус меняет только джем: атласы public/cone/atlas-<вкус>.webp (собирает scripts/build-cone.py).
 // При смене вкуса новый атлас проступает поверх старого. Динамика страницы — в ягодах на фоне.
@@ -32,14 +32,14 @@ const POSES: Record<"desk" | "mob", Record<string, Pose>> = {
   },
 };
 
-// ---- геометрия: тело вращения; для каждой вершины — координаты в каждом из 4 ракурсов и насколько ракурс её видит
+// ---- геометрия: тело вращения; для каждой вершины — координаты в каждом из 4 ракурсов и их вес
 function bodyGeometry() {
   const J = 160;
   const N = profile.v.length;
   const pos: number[] = [],
     uvA: number[] = [],
     uvB: number[] = [],
-    cov: number[] = [],
+    wts: number[] = [],
     idx: number[] = [];
   for (let i = 0; i < N; i++) {
     const v = profile.v[i];
@@ -48,15 +48,19 @@ function bodyGeometry() {
       const a = (j / J) * Math.PI * 2;
       pos.push(r * K * Math.sin(a), (v - 0.5) * HW, r * K * Math.cos(a));
       const uv: number[] = [];
+      const w: number[] = [];
       for (let k = 0; k < 4; k++) {
         const rel = a - (k * Math.PI) / 2;
         const pv = profile.views[k];
         // ракурс k смотрит на сторону с углом k·90°; точка видна в нём со смещением sin(rel) от оси
-        uv.push((k + pv.cx[i] + pv.r[i] * 0.985 * Math.sin(rel)) / 4, v);
-        cov.push(Math.cos(rel)); // > 0 — точка на видимой ракурсу стороне
+        const u = (k + pv.cx[i] + pv.r[i] * 0.985 * Math.sin(rel)) / 4;
+        uv.push(u, v);
+        w.push(Math.pow(Math.max(0, Math.cos(rel)), 10)); // узкий переход: почти всегда виден один чёткий ракурс
       }
+      const sum = w.reduce((s, x) => s + x, 0) || 1;
       uvA.push(uv[0], uv[1], uv[2], uv[3]);
       uvB.push(uv[4], uv[5], uv[6], uv[7]);
+      wts.push(...w.map((x) => x / sum));
     }
   }
   for (let i = 0; i < N - 1; i++)
@@ -69,51 +73,39 @@ function bodyGeometry() {
   g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute("aUvA", new THREE.Float32BufferAttribute(uvA, 4));
   g.setAttribute("aUvB", new THREE.Float32BufferAttribute(uvB, 4));
-  g.setAttribute("aCov", new THREE.Float32BufferAttribute(cov, 4));
+  g.setAttribute("aW", new THREE.Float32BufferAttribute(wts, 4));
   g.setIndex(idx);
   return g;
 }
 
-// Фото без освещения (свет уже «в снимке»). Весь видимый бок рожка берётся из ОДНОГО снимка — того, что ближе
-// всего к зрителю (uCam), поэтому посередине нет швов и двоения. Соседний снимок подхватывает только самый край,
-// которого основной не видит. При повороте снимки сменяются быстрым растворением.
+// фото без освещения (свет уже «в снимке»); смешиваем ракурсы с учётом прозрачности, затем два вкуса
 const VS = `
 attribute vec4 aUvA;
 attribute vec4 aUvB;
-attribute vec4 aCov;
-uniform vec4 uCam;
+attribute vec4 aW;
 varying vec4 vUvA;
 varying vec4 vUvB;
 varying vec4 vW;
 void main() {
-  vUvA = aUvA; vUvB = aUvB;
-  vec4 c = max(aCov, 0.0);
-  vec4 w = uCam * smoothstep(0.1, 0.38, c) + 1e-4 * pow(c, vec4(8.0));
-  vW = w / max(w.x + w.y + w.z + w.w, 1e-6);
+  vUvA = aUvA; vUvB = aUvB; vW = aW;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 }`;
 const FS = `
 uniform sampler2D uA;
 uniform sampler2D uB;
-uniform sampler2D uFA;
-uniform sampler2D uFB;
-uniform float uHA;
-uniform float uHB;
 uniform float uMix;
 varying vec4 vUvA;
 varying vec4 vUvB;
 varying vec4 vW;
-// лицо (ракурс 0) берём из отдельной текстуры двойного разрешения, когда она загружена
-vec4 views(sampler2D t, sampler2D f, float hasF) {
-  vec4 c0 = hasF > 0.5 ? texture2D(f, vec2(vUvA.x * 4.0, vUvA.y)) : texture2D(t, vUvA.xy);
-  vec4 c1 = texture2D(t, vUvA.zw), c2 = texture2D(t, vUvB.xy), c3 = texture2D(t, vUvB.zw);
+vec4 views(sampler2D t) {
+  vec4 c0 = texture2D(t, vUvA.xy), c1 = texture2D(t, vUvA.zw), c2 = texture2D(t, vUvB.xy), c3 = texture2D(t, vUvB.zw);
   vec3 rgb = c0.rgb * c0.a * vW.x + c1.rgb * c1.a * vW.y + c2.rgb * c2.a * vW.z + c3.rgb * c3.a * vW.w;
   float a = c0.a * vW.x + c1.a * vW.y + c2.a * vW.z + c3.a * vW.w;
   return vec4(rgb, a);
 }
 void main() {
-  vec4 p = views(uA, uFA, uHA);
-  vec4 q = views(uB, uFB, uHB);
+  vec4 p = views(uA);
+  vec4 q = views(uB);
   vec4 c = mix(p, q, uMix);
   if (c.a < 0.5) discard;
   gl_FragColor = vec4(c.rgb / c.a, 1.0);
@@ -143,27 +135,7 @@ export function createCones(canvas: HTMLCanvasElement, onReady?: () => void) {
       });
     }));
 
-  // лицо рожка в двойном разрешении — только на ДВ (на телефоне рожок мельче, хватает атласа), после первого экрана
-  const front: (THREE.Texture | null)[] = IDS.map(() => null);
-  const loadFront = (i: number) => {
-    if (mobile || front[i]) return;
-    loader.load(`${BASE}/cone/front-${IDS[i]}.webp`, (t) => {
-      t.colorSpace = THREE.NoColorSpace;
-      t.anisotropy = renderer.capabilities.getMaxAnisotropy();
-      front[i] = t;
-    });
-  };
-
-  const uniforms = {
-    uA: { value: null as THREE.Texture | null },
-    uB: { value: null as THREE.Texture | null },
-    uFA: { value: null as THREE.Texture | null },
-    uFB: { value: null as THREE.Texture | null },
-    uHA: { value: 0 },
-    uHB: { value: 0 },
-    uMix: { value: 0 },
-    uCam: { value: new THREE.Vector4(1, 0, 0, 0) },
-  };
+  const uniforms = { uA: { value: null as THREE.Texture | null }, uB: { value: null as THREE.Texture | null }, uMix: { value: 0 } };
   const mat = new THREE.ShaderMaterial({ vertexShader: VS, fragmentShader: FS, uniforms, side: THREE.FrontSide });
   const root = new THREE.Group();
   const turn = new THREE.Group();
@@ -178,11 +150,7 @@ export function createCones(canvas: HTMLCanvasElement, onReady?: () => void) {
     uniforms.uB.value = t;
     root.visible = true;
     onReady?.();
-    setTimeout(() => {
-      loadFront(current);
-      IDS.forEach((_, i) => i !== current && load(i));
-      setTimeout(() => IDS.forEach((_, i) => loadFront(i)), 1500);
-    }, 300);
+    setTimeout(() => IDS.forEach((_, i) => i !== current && load(i)), 300);
   });
 
   const ptr = { x: 0, y: 0, sx: 0, sy: 0 };
@@ -236,6 +204,7 @@ export function createCones(canvas: HTMLCanvasElement, onReady?: () => void) {
   let swap = 1,
     target = current,
     t = 0,
+    spin = 0,
     raf = 0,
     last = performance.now();
 
@@ -261,7 +230,7 @@ export function createCones(canvas: HTMLCanvasElement, onReady?: () => void) {
       }
     }
 
-    // ---- поза по разделам
+    // ---- поза по разделам; рожок медленно вращается, мышь добавляет поворот и наклон
     let p = P.hero;
     p = mix(p, P.pour, ease(stage.openIn));
     p = mix(p, P.flv, ease(stage.flvIn));
@@ -270,23 +239,9 @@ export function createCones(canvas: HTMLCanvasElement, onReady?: () => void) {
     turn.visible = stage.away < 0.999;
     ptr.sx += (ptr.x - ptr.sx) * (1 - Math.exp(-4 * dt));
     ptr.sy += (ptr.y - ptr.sy) * (1 - Math.exp(-4 * dt));
-    // рожок не прокручивается: лицом к зрителю (снимок 0), только чуть поворачивается вправо-влево (от −13° до 0°);
-    // в этих пределах весь видимый бок — из одного снимка, без швов
-    // диапазон сдвинут в сторону, где макушка целая: при повороте в другую сторону завиток макушки
-    // выходит за тело вращения и в нём видна щель
-    turn.rotation.set(0, reduced ? -0.11 : -0.11 + Math.sin(t * 0.6) * 0.12, 0);
-    // какой снимок смотрит на зрителя: зритель в координатах рожка — под углом −rotation.y
-    const cam = [0, 1, 2, 3].map((k) => Math.pow(Math.max(0, Math.cos(-turn.rotation.y - (k * Math.PI) / 2)), 24));
-    const cs = cam[0] + cam[1] + cam[2] + cam[3];
-    uniforms.uCam.value.set(cam[0] / cs, cam[1] / cs, cam[2] / cs, cam[3] / cs);
-
-    // лицо высокого разрешения для обоих смешиваемых вкусов (пока не загружено — берётся из атласа)
-    const fa = front[current],
-      fb = front[target];
-    uniforms.uFA.value = fa ?? uniforms.uA.value;
-    uniforms.uHA.value = fa ? 1 : 0;
-    uniforms.uFB.value = fb ?? uniforms.uB.value;
-    uniforms.uHB.value = fb ? 1 : 0;
+    if (!reduced) spin += dt * 0.35;
+    turn.rotation.y = spin + ptr.sx * 1.2;
+    turn.rotation.x = ptr.sy * 0.25;
 
     renderer.render(scene, camera);
   }
